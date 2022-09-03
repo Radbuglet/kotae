@@ -1,0 +1,13 @@
+# Build artifacts
+target/
+
+# IDE project files
+.vscode/
+.idea/
+*.iml
+
+# MacOS
+.DS_Store
+
+# Misc
+private
