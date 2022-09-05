@@ -3,7 +3,7 @@ use std::{
 	ptr,
 };
 
-pub fn leak_alloc<T>(val: T) -> &'static mut T {
+pub fn leak_alloc<'a, T>(val: T) -> &'a mut T {
 	Box::leak(Box::new(val))
 }
 
@@ -86,6 +86,10 @@ pub const unsafe fn entirely_unchecked_transmute<A, B>(a: A) -> B {
 	ManuallyDrop::into_inner(punned.b)
 }
 
+pub const fn must_be_unsized<T: ?Sized>() -> bool {
+	mem::size_of::<*mut T>() != mem::size_of::<*mut ()>()
+}
+
 pub const unsafe fn sizealign_checked_transmute<A, B>(a: A) -> B {
 	assert!(mem::size_of::<A>() == mem::size_of::<B>());
 	assert!(mem::align_of::<A>() >= mem::align_of::<B>());
@@ -123,3 +127,7 @@ macro_rules! impl_tup_offsets {
 }
 
 impl_tuples!(impl_tup_offsets);
+
+pub trait All {}
+
+impl<T: ?Sized> All for T {}

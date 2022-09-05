@@ -386,7 +386,7 @@ impl Session<'_> {
 			}
 
 			if let Err(err) = db.borrows[lock.index()].can_borrow_as(mode) {
-				violations.push((lock, dbg!(err)));
+				violations.push((lock, err));
 			}
 		}
 

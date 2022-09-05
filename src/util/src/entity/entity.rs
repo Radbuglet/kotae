@@ -1,7 +1,8 @@
 use std::{
 	any::TypeId,
 	collections::HashMap,
-	fmt, mem,
+	fmt,
+	mem::ManuallyDrop,
 	sync::{Arc, RwLock, Weak},
 };
 
@@ -11,8 +12,11 @@ use thiserror::Error;
 use crate::{
 	debug::{error::ResultExt, type_id::NamedTypeId},
 	mem::{
-		inline::InlineStore,
-		ptr::{leak_alloc, sizealign_checked_transmute, OffsetOfReprC, PointeeCastExt},
+		inline::BoxableInlineStore,
+		ptr::{
+			leak_alloc, must_be_unsized, sizealign_checked_transmute, All, OffsetOfReprC,
+			PointeeCastExt,
+		},
 	},
 };
 
@@ -20,11 +24,12 @@ use super::lock::{LRefCell, Lock, Session};
 
 // === ComponentList === //
 
+// ComponentList
 pub unsafe trait ComponentList: Sized + 'static {
-	type Bundle;
+	type Bundle: Sized + 'static;
 
 	fn to_bundle(self) -> Self::Bundle;
-	fn write_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize);
+	fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize);
 }
 
 macro_rules! impl_component_list {
@@ -36,13 +41,13 @@ macro_rules! impl_component_list {
                 ( $(self.$field.to_bundle(),)* )
             }
 
-            #[allow(unused)]
-            fn write_offset_map(&self, builder: &mut ArchetypeBuilder, base_offset: usize) {
+            #[allow(unused)] // For tuples of arity 0
+            fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, base_offset: usize) {
                 let field_offsets = <Self::Bundle as OffsetOfReprC>::offsets();
                 let mut i = 0;
 
                 $(
-                    <$para as ComponentList>::write_offset_map(
+                    <$para as ComponentList>::write_comp_offset_map(
 						&self.$field,
 						builder,
 						base_offset + field_offsets[i],
@@ -56,6 +61,31 @@ macro_rules! impl_component_list {
 
 impl_tuples!(impl_component_list);
 
+// UnsizingList
+pub unsafe trait UnsizingList<T>: Sized + 'static {
+	fn write_alias_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize);
+}
+
+unsafe impl<T: 'static, R: ?Sized + 'static> UnsizingList<T> for fn(&T) -> &R {
+	fn write_alias_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
+		builder.push_unsized(offset, *self)
+	}
+}
+
+macro_rules! impl_unsizing_list {
+	($($para:ident:$field:tt),*) => {
+		unsafe impl<_T, $($para: UnsizingList<_T>),*> UnsizingList<_T> for ($($para,)*) {
+			#[allow(unused)] // For tuples of arity 0
+			fn write_alias_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
+				$( self.$field.write_alias_offset_map(builder, offset); )*
+			}
+		}
+	};
+}
+
+impl_tuples!(impl_unsizing_list);
+
+// Providers
 #[derive(Default)]
 pub struct SizedComp<T>(pub T);
 
@@ -80,15 +110,96 @@ unsafe impl<T: 'static> ComponentList for SizedComp<T> {
 		self.0
 	}
 
-	fn write_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
+	fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
 		builder.push_sized::<T>(offset);
 	}
 }
 
+pub struct UnsizedComp<T, L>(pub T, pub L);
+
+unsafe impl<T: 'static, L: UnsizingList<T>> ComponentList for UnsizedComp<T, L> {
+	type Bundle = T;
+
+	fn to_bundle(self) -> Self::Bundle {
+		self.0
+	}
+
+	fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
+		builder.push_sized::<T>(offset);
+		self.1.write_alias_offset_map(builder, offset);
+	}
+}
+
+// === Archetype Entry === //
+
+union ArchetypeEntry {
+	sized: usize,
+	unsizer: ManuallyDrop<UnsizedArchetypeEntry>,
+}
+
+type DynCasterInlined = BoxableInlineStore<fn(&()) -> &dyn All>;
+type DynExecutorInlined = BoxableInlineStore<DynExecutor<dyn All>>;
+
+type DynExecutor<T> = unsafe fn(*const u8, &DynCasterInlined) -> *const T;
+
+struct UnsizedArchetypeEntry {
+	offset: usize,
+	caster: DynCasterInlined,
+	executor: DynExecutorInlined,
+}
+
 // === Archetype === //
 
-type ArchetypeEntry = InlineStore<usize>;
-type ArchetypeEntryRepointer<T> = (usize, fn(*const u8) -> *const T);
+pub struct ArchetypeBuilder {
+	entries: HashMap<NamedTypeId, ArchetypeEntry>,
+}
+
+impl ArchetypeBuilder {
+	fn new() -> Self {
+		Self {
+			entries: Default::default(),
+		}
+	}
+
+	fn push_sized<T: 'static>(&mut self, offset: usize) {
+		#[rustfmt::skip]
+        self.entries.insert(
+            NamedTypeId::of::<T>(),
+            ArchetypeEntry {
+				sized: offset,
+			},
+        );
+	}
+
+	fn push_unsized<I, T: ?Sized + 'static>(&mut self, offset: usize, caster: fn(&I) -> &T) {
+		assert!(must_be_unsized::<T>());
+
+		unsafe fn executor<I, T: ?Sized>(comp: *const u8, caster: &DynCasterInlined) -> *const T {
+			let comp = &*comp.cast::<I>();
+			let caster = caster.decode_maybe_boxed::<fn(&I) -> &T>();
+
+			(caster)(comp)
+		}
+
+		#[rustfmt::skip]
+        self.entries.insert(
+            NamedTypeId::of::<T>(),
+            ArchetypeEntry {
+				unsizer: ManuallyDrop::new(UnsizedArchetypeEntry {
+					offset,
+					caster: DynCasterInlined::new_maybe_boxed(caster),
+					executor: DynExecutorInlined::new_maybe_boxed::<DynExecutor<T>>(executor::<I, T>)
+				})
+			},
+        );
+	}
+
+	fn finalize(self) -> Archetype {
+		Archetype {
+			entries: self.entries,
+		}
+	}
+}
 
 struct Archetype {
 	entries: HashMap<NamedTypeId, ArchetypeEntry>,
@@ -106,8 +217,8 @@ impl Archetype {
 	fn access<T: ?Sized + 'static>(&self, header: *const EntityHeader) -> Option<*const T> {
 		let entry = self.entries.get(&TypeId::of::<T>())?;
 
-		if mem::size_of::<*const T>() == mem::size_of::<usize>() {
-			let offset = *unsafe { entry.decode::<usize>() };
+		if !must_be_unsized::<T>() {
+			let offset = unsafe { entry.sized };
 
 			let header = header.cast::<u8>();
 			let ptr = unsafe {
@@ -116,47 +227,13 @@ impl Archetype {
 
 			Some(ptr)
 		} else {
-			let (offset, translator) = *unsafe { entry.decode::<ArchetypeEntryRepointer<T>>() };
-
-			Some((translator)(header.cast::<u8>().wrapping_add(offset)))
-		}
-	}
-}
-
-pub struct ArchetypeBuilder {
-	entries: HashMap<NamedTypeId, ArchetypeEntry>,
-}
-
-impl ArchetypeBuilder {
-	fn new() -> Self {
-		Self {
-			entries: Default::default(),
-		}
-	}
-
-	fn push_sized<T: 'static>(&mut self, offset: usize) {
-		#[rustfmt::skip]
-        self.entries.insert(
-            NamedTypeId::of::<T>(),
-            InlineStore::new(offset),
-        );
-	}
-
-	fn push_unsized<T: ?Sized + 'static>(
-		&mut self,
-		offset: usize,
-		repointer: fn(*const u8) -> *const T,
-	) {
-		#[rustfmt::skip]
-        self.entries.insert(
-            NamedTypeId::of::<T>(),
-            InlineStore::new::<ArchetypeEntryRepointer<T>>((offset, repointer)),
-        );
-	}
-
-	fn finalize(self) -> Archetype {
-		Archetype {
-			entries: self.entries,
+			Some(unsafe {
+				let unsizer = &entry.unsizer;
+				let ptr = header.cast::<u8>().wrapping_add(unsizer.offset);
+				let executor = unsizer.executor.decode_maybe_boxed::<DynExecutor<T>>();
+				let casted = (executor)(ptr, &unsizer.caster);
+				casted
+			})
 		}
 	}
 }
@@ -191,7 +268,7 @@ impl ArchetypeDB {
 				let mut builder = ArchetypeBuilder::new();
 				let [_, bundle_offset] = <(EntityHeader, C::Bundle)>::offsets();
 
-				sample_bundle.write_offset_map(&mut builder, bundle_offset);
+				sample_bundle.write_comp_offset_map(&mut builder, bundle_offset);
 				leak_alloc(builder.finalize())
 			})
 		}
@@ -322,7 +399,9 @@ impl<T: ?Sized + AnyEntity> EntityView for T {}
 
 #[cfg(test)]
 mod tests {
-	use crate::entity::{BorrowMutability, LRefCell, Lock, SessionGuard};
+	use std::any::Any;
+
+	use crate::entity::{BorrowMutability, Lock, SessionGuard};
 
 	use super::*;
 
@@ -337,11 +416,19 @@ mod tests {
 		s.acquire_locks([(lock, BorrowMutability::Mutable)]);
 
 		// Create entity
-		let my_entity = Entity::new((SizedComp(3i32), SizedComp(LRefCell::new(lock, 4u32))));
+		let my_entity = Entity::new((
+			SizedComp(3i32),
+			SizedComp::new_lrw(lock, 4u32),
+			UnsizedComp(8usize, (|x| x as &dyn Any) as fn(&usize) -> &dyn Any),
+		));
 
 		assert!(my_entity.try_get::<i32>().is_ok());
 		assert!(my_entity.try_get::<u32>().is_err());
 		assert_eq!(*my_entity.get::<i32>(), 3);
+		assert_eq!(
+			my_entity.get::<dyn Any>().downcast_ref::<usize>().copied(),
+			Some(8)
+		);
 
 		my_entity.use_mut(s, |val: &mut u32| {
 			*val += 1;
