@@ -22,7 +22,7 @@ pub unsafe trait ComponentList: Sized + 'static {
 	type Bundle;
 
 	fn to_bundle(self) -> Self::Bundle;
-	fn write_offset_map(builder: &mut ArchetypeBuilder, offset: usize);
+	fn write_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize);
 }
 
 macro_rules! impl_component_list {
@@ -35,12 +35,16 @@ macro_rules! impl_component_list {
             }
 
             #[allow(unused)]
-            fn write_offset_map(builder: &mut ArchetypeBuilder, base_offset: usize) {
+            fn write_offset_map(&self, builder: &mut ArchetypeBuilder, base_offset: usize) {
                 let field_offsets = <Self::Bundle as OffsetOfReprC>::offsets();
                 let mut i = 0;
 
                 $(
-                    <$para as ComponentList>::write_offset_map(builder, base_offset + field_offsets[i]);
+                    <$para as ComponentList>::write_offset_map(
+						&self.$field,
+						builder,
+						base_offset + field_offsets[i],
+					);
                     i += 1;
                 )*
             }
@@ -66,7 +70,7 @@ unsafe impl<T: 'static> ComponentList for SizedComp<T> {
 		self.0
 	}
 
-	fn write_offset_map(builder: &mut ArchetypeBuilder, offset: usize) {
+	fn write_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
 		builder.push_sized::<T>(offset);
 	}
 }
@@ -161,7 +165,7 @@ impl ArchetypeDB {
 		DB.get_or_init(Self::default)
 	}
 
-	fn get_archetype<C: ComponentList>() -> &'static Archetype {
+	fn get_archetype<C: ComponentList>(sample_bundle: &C) -> &'static Archetype {
 		let db = Self::get();
 
 		let arch_id = TypeId::of::<C>();
@@ -175,17 +179,16 @@ impl ArchetypeDB {
 
 			*map_guard.entry(arch_id).or_insert_with(|| {
 				let mut builder = ArchetypeBuilder::new();
-				C::write_offset_map(&mut builder, 0);
+				let [_, bundle_offset] = <(EntityHeader, C::Bundle)>::offsets();
+
+				sample_bundle.write_offset_map(&mut builder, bundle_offset);
 				leak_alloc(builder.finalize())
 			})
 		}
 	}
 }
 
-// === Entity === //
-
-pub type ArcEntity = Arc<dyn AnyEntity + Send + Sync>;
-pub type WeakArcEntity = Weak<dyn AnyEntity + Send + Sync>;
+// === Error Types === //
 
 #[derive(Debug, Clone, Error)]
 pub struct MissingComponentError {
@@ -214,6 +217,8 @@ impl fmt::Display for MissingComponentError {
 	}
 }
 
+// === Entity Core === //
+
 pub unsafe trait AnyEntity {}
 
 #[repr(C)]
@@ -230,15 +235,17 @@ impl<T: ComponentList> Entity<T> {
 	pub fn new(list: T) -> Self {
 		Self {
 			header: EntityHeader {
-				archetype: ArchetypeDB::get_archetype::<T>(),
+				archetype: ArchetypeDB::get_archetype::<T>(&list),
 			},
 			bundle: list.to_bundle(),
 		}
 	}
 }
 
-impl dyn AnyEntity {
-	pub fn try_get_raw<T: ?Sized + 'static>(&self) -> Result<*const T, MissingComponentError> {
+unsafe impl<T: ComponentList> AnyEntity for Entity<T> {}
+
+pub trait AnyEntityExt: AnyEntity {
+	fn try_get_raw<T: ?Sized + 'static>(&self) -> Result<*const T, MissingComponentError> {
 		let header = unsafe { self.cast_ref_via_ptr(|ptr| ptr as *const EntityHeader) };
 
 		header
@@ -250,19 +257,64 @@ impl dyn AnyEntity {
 			})
 	}
 
-	pub fn get_raw<T: ?Sized + 'static>(&self) -> *const T {
+	fn get_raw<T: ?Sized + 'static>(&self) -> *const T {
 		self.try_get_raw::<T>().unwrap_pretty()
 	}
 
-	pub fn try_get<T: ?Sized + 'static>(&self) -> Result<&T, MissingComponentError> {
+	fn try_get<T: ?Sized + 'static>(&self) -> Result<&T, MissingComponentError> {
 		unsafe { self.try_cast_ref_via_ptr(|_| self.try_get_raw::<T>()) }
 	}
 
-	pub fn get<T: ?Sized + 'static>(&self) -> &T {
+	fn get<T: ?Sized + 'static>(&self) -> &T {
 		self.try_get().unwrap_pretty()
 	}
 
-	pub fn has<T: ?Sized + 'static>(&self) -> bool {
+	fn has<T: ?Sized + 'static>(&self) -> bool {
 		self.try_get::<T>().is_ok()
+	}
+}
+
+impl<T: ?Sized + AnyEntity> AnyEntityExt for T {}
+
+// === Entity Extensions === //
+
+pub type ArcEntity = Arc<dyn AnyEntity + Send + Sync>;
+pub type WeakArcEntity = Weak<dyn AnyEntity + Send + Sync>;
+
+impl<T: ComponentList> Entity<T> {
+	pub fn new_arc(list: T) -> Arc<Self> {
+		Arc::new(Entity::new(list))
+	}
+}
+
+// === Unit Tests === //
+
+#[cfg(test)]
+mod tests {
+	use crate::entity::{BorrowMutability, LRefCell, Lock, SessionGuard};
+
+	use super::*;
+
+	#[test]
+	fn entity_basic_test() {
+		// Create session
+		let lock = Lock::new("lock");
+
+		let session = SessionGuard::new_tls();
+		let s = session.handle();
+
+		s.acquire_locks([(lock, BorrowMutability::Mutable)]);
+
+		// Create entity
+		let my_entity = Entity::new((SizedComp(3i32), SizedComp(LRefCell::new(lock, 4u32))));
+
+		assert!(my_entity.try_get::<i32>().is_ok());
+		assert!(my_entity.try_get::<u32>().is_err());
+		assert_eq!(*my_entity.get::<i32>(), 3);
+
+		my_entity.get::<LRefCell<u32>>().use_mut(s, |val| {
+			*val += 1;
+			assert_eq!(*val, 5);
+		});
 	}
 }

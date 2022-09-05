@@ -3,7 +3,9 @@ use std::{
 	cell::{Cell, RefCell, UnsafeCell},
 	fmt,
 	marker::PhantomData,
+	mem,
 	num::{NonZeroU8, NonZeroUsize},
+	ops::{Deref, DerefMut},
 	rc::{Rc, Weak},
 	sync::{Mutex, MutexGuard},
 };
@@ -11,9 +13,12 @@ use std::{
 use bitvec::{array::BitArray, order::Lsb0};
 use thiserror::Error;
 
-use crate::debug::{
-	error::ResultExt,
-	label::{DebugLabel, SerializedDebugLabel},
+use crate::{
+	debug::{
+		error::ResultExt,
+		label::{DebugLabel, SerializedDebugLabel},
+	},
+	mem::guard::DropGuard,
 };
 
 // === Borrow States === //
@@ -65,21 +70,27 @@ pub enum BorrowState {
 }
 
 impl BorrowState {
+	pub fn from_mutability(mode: BorrowMutability) -> Self {
+		match mode {
+			BorrowMutability::Immutable => Self::Immutable(None),
+			BorrowMutability::Mutable => Self::Mutable,
+		}
+	}
 	pub fn new_immutable_known(count: NonZeroUsize) -> Self {
 		Self::Immutable(Some(count))
 	}
 
 	pub fn mutability(&self) -> BorrowMutability {
 		match self {
-			BorrowState::Immutable(_) => BorrowMutability::Immutable,
-			BorrowState::Mutable => BorrowMutability::Mutable,
+			Self::Immutable(_) => BorrowMutability::Immutable,
+			Self::Mutable => BorrowMutability::Mutable,
 		}
 	}
 
 	pub fn block_count(&self) -> Option<NonZeroUsize> {
 		match self {
-			BorrowState::Immutable(count) => *count,
-			BorrowState::Mutable => Some(NonZeroUsize::new(1).unwrap()),
+			Self::Immutable(count) => *count,
+			Self::Mutable => Some(NonZeroUsize::new(1).unwrap()),
 		}
 	}
 }
@@ -146,7 +157,7 @@ impl LockDB {
 		static DB: Mutex<LockDB> = Mutex::new(LockDB {
 			labels: arr![None; 256],
 			reserved: ReservedBV {
-				_ord: PhantomData,
+				_ord: PhantomData::<Lsb0>,
 				// Least significant byte corresponds to the `0..usize::BITS` range.
 				data: arr![
 					i => if i == 0 { 1 } else { 0 };
@@ -407,11 +418,11 @@ impl Session<'_> {
 		self.try_acquire_locks(iter).unwrap_pretty()
 	}
 
-	pub fn has_acquired_ref(self, lock: Lock) -> bool {
+	pub fn can_access_ref(self, lock: Lock) -> bool {
 		Lock::has_ref_inner(self.0.lock_states[lock.index()].get())
 	}
 
-	pub fn has_acquired_mut(self, lock: Lock) -> bool {
+	pub fn can_access_mut(self, lock: Lock) -> bool {
 		Lock::has_mut_inner(self.0.lock_states[lock.index()].get())
 	}
 
@@ -451,7 +462,7 @@ impl Lock {
 		Self::try_new(label).unwrap_pretty()
 	}
 
-	pub fn borrow_state(self) -> Option<BorrowState> {
+	pub fn global_borrow_state(self) -> Option<BorrowState> {
 		LockDB::get().borrows[self.index()].state()
 	}
 
@@ -481,7 +492,34 @@ pub struct LRefCell<T: ?Sized> {
 }
 
 impl<T: ?Sized> LRefCell<T> {
-	// TODO: Use drop guards for panic protection.
+	// === Cell management === //
+
+	pub fn new(lock: Lock, value: T) -> Self
+	where
+		T: Sized,
+	{
+		Self {
+			lock: Cell::new(lock.0.get()),
+			value: UnsafeCell::new(value),
+		}
+	}
+
+	pub fn as_ptr(&self) -> *mut T {
+		self.value.get()
+	}
+
+	pub fn get_mut(&mut self) -> &mut T {
+		self.value.get_mut()
+	}
+
+	pub fn into_inner(self) -> T
+	where
+		T: Sized,
+	{
+		self.value.into_inner()
+	}
+
+	// === Borrowing primitives === //
 
 	pub fn use_ref<F, R>(&self, session: Session, f: F) -> R
 	where
@@ -490,35 +528,113 @@ impl<T: ?Sized> LRefCell<T> {
 		let lock_id = self.lock.get();
 		let lock_state = session.0.lock_states[lock_id as usize].get();
 
+		// Validate borrow
 		if !Lock::has_ref_inner(lock_state) {
-			loop {}
+			#[cold]
+			#[inline(never)]
+			fn bad_ref_borrow() -> ! {
+				// TODO: Provide more details
+				panic!("failed to borrow `LRefCell` immutably");
+			}
+
+			bad_ref_borrow();
 		}
 
+		// Acquire lock
 		self.lock.set(lock_state); // The lock state also points to the proper immutable borrow mode
+		let _unacquire_guard = DropGuard::new((), |()| {
+			self.lock.set(lock_id);
+		});
 
-		let res = f(unsafe { &*self.value.get() });
+		// Run inner section
+		// N.B. we force immutable critical sections to be wrapped by function calls to ensure that
+		// `_reset_guards` are destroyed in the reverse order in which they were created. This is
+		// important because top-level guards transitioning from unborrowed to immutable might write
+		// back an unborrowed state while other immutable guards still have an active reference to
+		// the cell.
+		f(unsafe { &*self.value.get() })
 
-		self.lock.set(lock_id);
+		// `_reset_guard` is dropped
+	}
 
-		res
+	pub fn borrow_mut<'a>(&'a self, session: Session<'a>) -> LRefMut<'a, T> {
+		let lock_id = self.lock.get();
+		let lock_state = session.0.lock_states[lock_id as usize].get();
+
+		// Validate borrow
+		if !Lock::has_mut_inner(lock_state) {
+			#[cold]
+			#[inline(never)]
+			fn bad_mut_borrow() -> ! {
+				// TODO: Provide more details
+				panic!("failed to borrow `LRefCell` mutably");
+			}
+
+			bad_mut_borrow();
+		}
+
+		// Acquire lock
+		// N.B. here, however, it is perfectly fine to return the guard directly to the user. This is
+		// because there can be only one mutable borrow of a cell at a given time, making the write-
+		// back always valid.
+		self.lock.set(0);
+		LRefMut {
+			old_state: lock_state,
+			cell: self,
+		}
 	}
 
 	pub fn use_mut<F, R>(&self, session: Session, f: F) -> R
 	where
 		F: FnOnce(&mut T) -> R,
 	{
-		let lock_id = self.lock.get();
-		let lock_state = session.0.lock_states[lock_id as usize].get();
+		let mut guard = self.borrow_mut(session);
+		f(&mut guard)
+	}
 
-		if !Lock::has_mut_inner(lock_state) {
-			loop {}
-		}
+	// === Aliases === //
 
-		self.lock.set(0);
-		let res = f(unsafe { &mut *self.value.get() });
-		self.lock.set(lock_id);
+	pub fn replace(&self, session: Session, value: T) -> T
+	where
+		T: Sized,
+	{
+		self.use_mut(session, |dst| mem::replace(dst, value))
+	}
 
-		res
+	pub fn replace_with<F>(&self, session: Session, f: F) -> T
+	where
+		F: FnOnce(&mut T) -> T,
+		T: Sized,
+	{
+		self.use_mut(session, |dst| {
+			let value = (f)(dst);
+			mem::replace(dst, value)
+		})
+	}
+}
+
+pub struct LRefMut<'a, T: ?Sized> {
+	old_state: u8,
+	cell: &'a LRefCell<T>,
+}
+
+impl<'a, T: ?Sized> Deref for LRefMut<'a, T> {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		unsafe { &*self.cell.value.get() }
+	}
+}
+
+impl<'a, T: ?Sized> DerefMut for LRefMut<'a, T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		unsafe { &mut *self.cell.value.get() }
+	}
+}
+
+impl<'a, T: ?Sized> Drop for LRefMut<'a, T> {
+	fn drop(&mut self) {
+		self.cell.lock.set(self.old_state);
 	}
 }
 
@@ -534,13 +650,13 @@ mod tests {
 		let session = SessionGuard::new_tls();
 		let s = session.handle();
 
-		assert_eq!(lock_1.borrow_state(), None);
-		assert_eq!(lock_2.borrow_state(), None);
+		assert_eq!(lock_1.global_borrow_state(), None);
+		assert_eq!(lock_2.global_borrow_state(), None);
 
 		s.acquire_locks([(lock_1, BorrowMutability::Mutable)]);
 
-		assert_eq!(lock_1.borrow_state(), Some(BorrowState::Mutable));
-		assert_eq!(lock_2.borrow_state(), None);
+		assert_eq!(lock_1.global_borrow_state(), Some(BorrowState::Mutable));
+		assert_eq!(lock_2.global_borrow_state(), None);
 
 		assert!(dbg!(s.try_acquire_locks([
 			(lock_1, BorrowMutability::Immutable),
@@ -548,17 +664,17 @@ mod tests {
 		]))
 		.is_err());
 
-		assert_eq!(lock_1.borrow_state(), Some(BorrowState::Mutable));
-		assert_eq!(lock_2.borrow_state(), None);
+		assert_eq!(lock_1.global_borrow_state(), Some(BorrowState::Mutable));
+		assert_eq!(lock_2.global_borrow_state(), None);
 
 		s.acquire_locks([
 			(lock_1, BorrowMutability::Mutable),
 			(lock_2, BorrowMutability::Immutable),
 		]);
 
-		assert_eq!(lock_1.borrow_state(), Some(BorrowState::Mutable));
+		assert_eq!(lock_1.global_borrow_state(), Some(BorrowState::Mutable));
 		assert_eq!(
-			lock_2.borrow_state(),
+			lock_2.global_borrow_state(),
 			Some(BorrowState::new_immutable_known(
 				NonZeroUsize::new(1).unwrap()
 			))
@@ -569,9 +685,9 @@ mod tests {
 			(lock_2, BorrowMutability::Immutable),
 		]);
 
-		assert_eq!(lock_1.borrow_state(), Some(BorrowState::Mutable));
+		assert_eq!(lock_1.global_borrow_state(), Some(BorrowState::Mutable));
 		assert_eq!(
-			lock_2.borrow_state(),
+			lock_2.global_borrow_state(),
 			Some(BorrowState::new_immutable_known(
 				NonZeroUsize::new(1).unwrap()
 			))
@@ -580,17 +696,17 @@ mod tests {
 		let session_2 = SessionGuard::new_tls();
 		let s2 = session_2.handle();
 
-		assert!(s2.has_acquired_ref(lock_1));
-		assert!(s2.has_acquired_mut(lock_1));
+		assert!(s2.can_access_ref(lock_1));
+		assert!(s2.can_access_mut(lock_1));
 
-		assert!(s2.has_acquired_ref(lock_2));
-		assert!(!s2.has_acquired_mut(lock_2));
+		assert!(s2.can_access_ref(lock_2));
+		assert!(!s2.can_access_mut(lock_2));
 
 		drop(session);
 
-		assert_eq!(lock_1.borrow_state(), Some(BorrowState::Mutable));
+		assert_eq!(lock_1.global_borrow_state(), Some(BorrowState::Mutable));
 		assert_eq!(
-			lock_2.borrow_state(),
+			lock_2.global_borrow_state(),
 			Some(BorrowState::new_immutable_known(
 				NonZeroUsize::new(1).unwrap()
 			))
@@ -609,9 +725,9 @@ mod tests {
 
 		s3.acquire_locks([(lock_2, BorrowMutability::Immutable)]);
 
-		assert_eq!(lock_1.borrow_state(), Some(BorrowState::Mutable));
+		assert_eq!(lock_1.global_borrow_state(), Some(BorrowState::Mutable));
 		assert_eq!(
-			lock_2.borrow_state(),
+			lock_2.global_borrow_state(),
 			Some(BorrowState::new_immutable_known(
 				NonZeroUsize::new(2).unwrap()
 			))
@@ -619,9 +735,9 @@ mod tests {
 
 		drop(session_2);
 
-		assert_eq!(lock_1.borrow_state(), None);
+		assert_eq!(lock_1.global_borrow_state(), None);
 		assert_eq!(
-			lock_2.borrow_state(),
+			lock_2.global_borrow_state(),
 			Some(BorrowState::new_immutable_known(
 				NonZeroUsize::new(1).unwrap()
 			))
@@ -629,7 +745,7 @@ mod tests {
 
 		drop(session_3);
 
-		assert_eq!(lock_1.borrow_state(), None);
-		assert_eq!(lock_2.borrow_state(), None);
+		assert_eq!(lock_1.global_borrow_state(), None);
+		assert_eq!(lock_2.global_borrow_state(), None);
 	}
 }
