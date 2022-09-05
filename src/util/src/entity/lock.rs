@@ -1,13 +1,16 @@
 use std::{
 	borrow::Borrow,
-	cell::{Cell, RefCell, UnsafeCell},
+	cell::{Cell, RefCell},
 	fmt,
 	marker::PhantomData,
 	mem,
 	num::{NonZeroU8, NonZeroUsize},
 	ops::{Deref, DerefMut},
 	rc::{Rc, Weak},
-	sync::{Mutex, MutexGuard},
+	sync::{
+		atomic::{AtomicU8, Ordering::Relaxed},
+		Mutex, MutexGuard,
+	},
 };
 
 use bitvec::{array::BitArray, order::Lsb0};
@@ -18,7 +21,10 @@ use crate::{
 		error::ResultExt,
 		label::{DebugLabel, SerializedDebugLabel},
 	},
-	mem::guard::DropGuard,
+	mem::{
+		cell::{SyncUnsafeCell, UnsafeCellLike},
+		guard::DropGuard,
+	},
 };
 
 // === Borrow States === //
@@ -487,8 +493,8 @@ impl Lock {
 // === LRefCell === //
 
 pub struct LRefCell<T: ?Sized> {
-	lock: Cell<u8>, // TODO: Make atomic
-	value: UnsafeCell<T>,
+	lock: AtomicU8,
+	value: SyncUnsafeCell<T>,
 }
 
 impl<T: ?Sized> LRefCell<T> {
@@ -499,13 +505,13 @@ impl<T: ?Sized> LRefCell<T> {
 		T: Sized,
 	{
 		Self {
-			lock: Cell::new(lock.0.get()),
-			value: UnsafeCell::new(value),
+			lock: AtomicU8::new(lock.0.get()),
+			value: SyncUnsafeCell::new(value),
 		}
 	}
 
 	pub fn as_ptr(&self) -> *mut T {
-		self.value.get()
+		self.value.get_ptr()
 	}
 
 	pub fn get_mut(&mut self) -> &mut T {
@@ -525,7 +531,7 @@ impl<T: ?Sized> LRefCell<T> {
 	where
 		F: FnOnce(&T) -> R,
 	{
-		let lock_id = self.lock.get();
+		let lock_id = self.lock.load(Relaxed);
 		let lock_state = session.0.lock_states[lock_id as usize].get();
 
 		// Validate borrow
@@ -541,9 +547,9 @@ impl<T: ?Sized> LRefCell<T> {
 		}
 
 		// Acquire lock
-		self.lock.set(lock_state); // The lock state also points to the proper immutable borrow mode
+		self.lock.store(lock_state, Relaxed); // The lock state also points to the proper immutable borrow mode
 		let _unacquire_guard = DropGuard::new((), |()| {
-			self.lock.set(lock_id);
+			self.lock.store(lock_id, Relaxed);
 		});
 
 		// Run inner section
@@ -552,13 +558,13 @@ impl<T: ?Sized> LRefCell<T> {
 		// important because top-level guards transitioning from unborrowed to immutable might write
 		// back an unborrowed state while other immutable guards still have an active reference to
 		// the cell.
-		f(unsafe { &*self.value.get() })
+		f(unsafe { self.value.get_ref_unchecked() })
 
 		// `_reset_guard` is dropped
 	}
 
 	pub fn borrow_mut<'a>(&'a self, session: Session<'a>) -> LRefMut<'a, T> {
-		let lock_id = self.lock.get();
+		let lock_id = self.lock.load(Relaxed);
 		let lock_state = session.0.lock_states[lock_id as usize].get();
 
 		// Validate borrow
@@ -577,9 +583,9 @@ impl<T: ?Sized> LRefCell<T> {
 		// N.B. here, however, it is perfectly fine to return the guard directly to the user. This is
 		// because there can be only one mutable borrow of a cell at a given time, making the write-
 		// back always valid.
-		self.lock.set(0);
+		self.lock.store(0, Relaxed);
 		LRefMut {
-			old_state: lock_state,
+			old_state: lock_id,
 			cell: self,
 		}
 	}
@@ -622,19 +628,19 @@ impl<'a, T: ?Sized> Deref for LRefMut<'a, T> {
 	type Target = T;
 
 	fn deref(&self) -> &Self::Target {
-		unsafe { &*self.cell.value.get() }
+		unsafe { self.cell.value.get_ref_unchecked() }
 	}
 }
 
 impl<'a, T: ?Sized> DerefMut for LRefMut<'a, T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		unsafe { &mut *self.cell.value.get() }
+		unsafe { self.cell.value.get_mut_unchecked() }
 	}
 }
 
 impl<'a, T: ?Sized> Drop for LRefMut<'a, T> {
 	fn drop(&mut self) {
-		self.cell.lock.set(self.old_state);
+		self.cell.lock.store(self.old_state, Relaxed);
 	}
 }
 

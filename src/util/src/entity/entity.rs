@@ -16,6 +16,8 @@ use crate::{
 	},
 };
 
+use super::lock::{LRefCell, Lock, Session};
+
 // === ComponentList === //
 
 pub unsafe trait ComponentList: Sized + 'static {
@@ -60,6 +62,14 @@ pub struct SizedComp<T>(pub T);
 impl<T> From<T> for SizedComp<T> {
 	fn from(val: T) -> Self {
 		Self(val)
+	}
+}
+
+pub type SizedCompRw<T> = SizedComp<LRefCell<T>>;
+
+impl<T> SizedCompRw<T> {
+	pub fn new_lrw(lock: Lock, value: T) -> Self {
+		Self(LRefCell::new(lock, value))
 	}
 }
 
@@ -244,7 +254,20 @@ impl<T: ComponentList> Entity<T> {
 
 unsafe impl<T: ComponentList> AnyEntity for Entity<T> {}
 
-pub trait AnyEntityExt: AnyEntity {
+// === Entity Access === //
+
+pub type ArcEntity = Arc<dyn AnyEntity + Send + Sync>;
+pub type WeakArcEntity = Weak<dyn AnyEntity + Send + Sync>;
+
+impl<T: ComponentList> Entity<T> {
+	pub fn new_arc(list: T) -> Arc<Self> {
+		Arc::new(Entity::new(list))
+	}
+}
+
+pub trait EntityView: AnyEntity {
+	// === Base === //
+
 	fn try_get_raw<T: ?Sized + 'static>(&self) -> Result<*const T, MissingComponentError> {
 		let header = unsafe { self.cast_ref_via_ptr(|ptr| ptr as *const EntityHeader) };
 
@@ -272,20 +295,28 @@ pub trait AnyEntityExt: AnyEntity {
 	fn has<T: ?Sized + 'static>(&self) -> bool {
 		self.try_get::<T>().is_ok()
 	}
-}
 
-impl<T: ?Sized + AnyEntity> AnyEntityExt for T {}
+	// === RwLock integration === //
 
-// === Entity Extensions === //
+	// TODO: Allow heterogeneous multi-borrow
+	fn use_ref<T, F, R>(&self, session: Session, f: F) -> R
+	where
+		T: ?Sized + 'static,
+		F: FnOnce(&T) -> R,
+	{
+		self.get::<LRefCell<T>>().use_ref(session, f)
+	}
 
-pub type ArcEntity = Arc<dyn AnyEntity + Send + Sync>;
-pub type WeakArcEntity = Weak<dyn AnyEntity + Send + Sync>;
-
-impl<T: ComponentList> Entity<T> {
-	pub fn new_arc(list: T) -> Arc<Self> {
-		Arc::new(Entity::new(list))
+	fn use_mut<T, F, R>(&self, session: Session, f: F) -> R
+	where
+		T: ?Sized + 'static,
+		F: FnOnce(&mut T) -> R,
+	{
+		self.get::<LRefCell<T>>().use_mut(session, f)
 	}
 }
+
+impl<T: ?Sized + AnyEntity> EntityView for T {}
 
 // === Unit Tests === //
 
@@ -312,7 +343,7 @@ mod tests {
 		assert!(my_entity.try_get::<u32>().is_err());
 		assert_eq!(*my_entity.get::<i32>(), 3);
 
-		my_entity.get::<LRefCell<u32>>().use_mut(s, |val| {
+		my_entity.use_mut(s, |val: &mut u32| {
 			*val += 1;
 			assert_eq!(*val, 5);
 		});
