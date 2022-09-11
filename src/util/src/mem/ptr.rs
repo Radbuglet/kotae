@@ -1,4 +1,5 @@
 use std::{
+	any::TypeId,
 	mem::{self, ManuallyDrop, MaybeUninit},
 	ptr,
 };
@@ -131,3 +132,21 @@ impl_tuples!(impl_tup_offsets);
 pub trait All {}
 
 impl<T: ?Sized> All for T {}
+
+pub fn runtime_unify<A: 'static, B: 'static>(a: A) -> B {
+	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+
+	unsafe { sizealign_checked_transmute(a) }
+}
+
+pub fn runtime_unify_ref<A: ?Sized + 'static, B: ?Sized + 'static>(a: &A) -> &B {
+	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+
+	unsafe { sizealign_checked_transmute(a) }
+}
+
+pub fn runtime_unify_mut<A: ?Sized + 'static, B: ?Sized + 'static>(a: &mut A) -> &mut B {
+	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+
+	unsafe { sizealign_checked_transmute(a) }
+}

@@ -1,16 +1,18 @@
+use std::sync::Arc;
+
 use macroquad::prelude::*;
 use mid_util::entity::{
-	ArcEntity, BorrowMutability, Entity, EntityView, LRefCell, Lock, Session, SessionGuard,
-	SizedComp, SizedCompRw,
+	BorrowMutability, DynProvider, LRefCell, Lock, Provider, ProviderExt, ProviderTarget, Session,
+	SessionGuard,
 };
 
 #[derive(Default)]
 pub struct SpatialManager {
-	entities: Vec<ArcEntity>,
+	entities: Vec<Arc<dyn DynProvider>>,
 }
 
 impl SpatialManager {
-	pub fn spawn(&mut self, s: Session, entity: ArcEntity) {
+	pub fn spawn(&mut self, s: Session, entity: Arc<dyn DynProvider>) {
 		entity.use_mut(s, |spatial: &mut Spatial| {
 			debug_assert_eq!(spatial.index, usize::MAX);
 			spatial.index = self.entities.len();
@@ -19,7 +21,7 @@ impl SpatialManager {
 		self.entities.push(entity);
 	}
 
-	pub fn despawn(&mut self, s: Session, entity: &ArcEntity) {
+	pub fn despawn(&mut self, s: Session, entity: &Arc<dyn DynProvider>) {
 		entity.use_mut(s, |spatial: &mut Spatial| {
 			debug_assert_ne!(spatial.index, usize::MAX);
 
@@ -40,7 +42,7 @@ impl SpatialManager {
 		}
 	}
 
-	pub fn entities(&self) -> &[ArcEntity] {
+	pub fn entities(&self) -> &[Arc<dyn DynProvider>] {
 		&self.entities
 	}
 
@@ -49,7 +51,7 @@ impl SpatialManager {
 		s: Session<'a>,
 		pos: Vec2,
 		radius: f32,
-	) -> impl Iterator<Item = &'a ArcEntity> + 'a {
+	) -> impl Iterator<Item = &'a Arc<dyn DynProvider>> + 'a {
 		self.entities.iter().filter(move |entity| {
 			entity.use_ref(s, |spatial: &Spatial| spatial.pos.distance(pos) < radius)
 		})
@@ -105,7 +107,7 @@ async fn main() {
 	let s = session.handle();
 	s.acquire_locks([(main_lock, BorrowMutability::Mutable)]);
 
-	let engine = make_engine_root(s, main_lock);
+	let engine = EngineRootEntity::new(s, main_lock);
 
 	while !is_quit_requested() {
 		clear_background(BLACK);
@@ -165,27 +167,72 @@ async fn main() {
 	}
 }
 
-fn make_engine_root(_s: Session, lock: Lock) -> ArcEntity {
-	Entity::new_arc((
-		SizedCompRw::new_lrw(lock, SpatialManager::default()),
-		SizedCompRw::new_lrw(lock, SpriteManager::default()),
-	))
+struct EngineRootEntity {
+	spatial_mgr: LRefCell<SpatialManager>,
+	sprite_mgr: LRefCell<SpriteManager>,
 }
 
-fn make_thingy(_s: Session, lock: Lock) -> ArcEntity {
-	let base = (
-		SizedCompRw::new_lrw(lock, Spatial::default()),
-		SizedCompRw::new_lrw(
-			lock,
-			Sprite {
-				color: Color::from_rgba(fastrand::u8(..), fastrand::u8(..), fastrand::u8(..), 255),
-			},
-		),
-	);
+impl EngineRootEntity {
+	pub fn new(_: Session, lock: Lock) -> Self {
+		Self {
+			spatial_mgr: LRefCell::new(lock, Default::default()),
+			sprite_mgr: LRefCell::new(lock, Default::default()),
+		}
+	}
+}
+
+impl Provider for EngineRootEntity {
+	fn provide<'r, U>(&'r self, target: &mut U)
+	where
+		U: ?Sized + ProviderTarget<'r>,
+	{
+		target.propose(&self.spatial_mgr);
+		target.propose(&self.sprite_mgr);
+	}
+}
+
+pub struct ThingyEntity {
+	spatial: LRefCell<Spatial>,
+	sprite: LRefCell<Sprite>,
+}
+
+impl Provider for ThingyEntity {
+	fn provide<'r, U>(&'r self, target: &mut U)
+	where
+		U: ?Sized + ProviderTarget<'r>,
+	{
+		target.propose(&self.spatial);
+		target.propose(&self.sprite);
+	}
+}
+
+pub struct KinematicThingyEntity {
+	base: ThingyEntity,
+	kinematic: LRefCell<Kinematic>,
+}
+
+impl Provider for KinematicThingyEntity {
+	fn provide<'r, U>(&'r self, target: &mut U)
+	where
+		U: ?Sized + ProviderTarget<'r>,
+	{
+		self.base.provide(target);
+		target.propose(&self.kinematic);
+	}
+}
+
+fn make_thingy(_s: Session, lock: Lock) -> Arc<dyn DynProvider> {
+	let base = ThingyEntity {
+		spatial: LRefCell::new(lock, Default::default()),
+		sprite: LRefCell::new(lock, Sprite { color: Color::from_rgba(fastrand::u8(..), fastrand::u8(..), fastrand::u8(..), 255) }),
+	};
 
 	if fastrand::bool() {
-		Entity::new_arc((base, SizedComp::new_lrw(lock, Kinematic::default())))
+		Arc::new(KinematicThingyEntity {
+			base,
+			kinematic: LRefCell::new(lock, Kinematic::default())
+		})
 	} else {
-		Entity::new_arc(base)
+		Arc::new(base)
 	}
 }

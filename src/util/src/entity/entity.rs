@@ -1,387 +1,385 @@
 use std::{
-	any::TypeId,
-	collections::HashMap,
 	fmt,
-	mem::ManuallyDrop,
-	sync::{Arc, RwLock, Weak},
+	marker::PhantomData,
+	sync::atomic::{AtomicU64, Ordering::Relaxed},
 };
 
-use once_cell::sync::OnceCell;
+use derive_where::derive_where;
+use itertools::Itertools;
 use thiserror::Error;
 
 use crate::{
 	debug::{error::ResultExt, type_id::NamedTypeId},
-	mem::{
-		inline::BoxableInlineStore,
-		ptr::{
-			leak_alloc, must_be_unsized, sizealign_checked_transmute, All, OffsetOfReprC,
-			PointeeCastExt,
-		},
-	},
+	mem::ptr::{runtime_unify_ref, PointeeCastExt},
 };
 
-use super::lock::{LRefCell, Lock, Session};
+use super::lock::{LRefCell, Session};
 
-// === ComponentList === //
+// === TypedKey === //
 
-// ComponentList
-pub unsafe trait ComponentList: Sized + 'static {
-	type Bundle: Sized + 'static;
-
-	fn to_bundle(self) -> Self::Bundle;
-	fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize);
+pub trait KeyProxyFor: 'static {
+	type Target: ?Sized + 'static;
 }
 
-macro_rules! impl_component_list {
-    ($($para:ident:$field:tt),*) => {
-        unsafe impl<$($para: ComponentList),*> ComponentList for ($($para,)*) {
-            type Bundle = ( $(<$para as ComponentList>::Bundle,)* );
-
-            fn to_bundle(self) -> Self::Bundle {
-                ( $(self.$field.to_bundle(),)* )
-            }
-
-            #[allow(unused)] // For tuples of arity 0
-            fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, base_offset: usize) {
-                let field_offsets = <Self::Bundle as OffsetOfReprC>::offsets();
-                let mut i = 0;
-
-                $(
-                    <$para as ComponentList>::write_comp_offset_map(
-						&self.$field,
-						builder,
-						base_offset + field_offsets[i],
-					);
-                    i += 1;
-                )*
-            }
-        }
-    };
+#[derive_where(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct TypedKey<T: ?Sized + 'static> {
+	_ty: PhantomData<fn(T) -> T>,
+	raw: RawTypedKey,
 }
 
-impl_tuples!(impl_component_list);
-
-// UnsizingList
-pub unsafe trait UnsizingList<T>: Sized + 'static {
-	fn write_alias_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize);
-}
-
-unsafe impl<T: 'static, R: ?Sized + 'static> UnsizingList<T> for fn(&T) -> &R {
-	fn write_alias_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
-		builder.push_unsized(offset, *self)
+impl<T: ?Sized + 'static> Default for TypedKey<T> {
+	fn default() -> Self {
+		Self::instance()
 	}
 }
 
-macro_rules! impl_unsizing_list {
-	($($para:ident:$field:tt),*) => {
-		unsafe impl<_T, $($para: UnsizingList<_T>),*> UnsizingList<_T> for ($($para,)*) {
-			#[allow(unused)] // For tuples of arity 0
-			fn write_alias_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
-				$( self.$field.write_alias_offset_map(builder, offset); )*
-			}
-		}
-	};
-}
+impl<T: ?Sized + 'static> TypedKey<T> {
+	// === Raw conversions === //
 
-impl_tuples!(impl_unsizing_list);
-
-// Providers
-#[derive(Default)]
-pub struct SizedComp<T>(pub T);
-
-impl<T> From<T> for SizedComp<T> {
-	fn from(val: T) -> Self {
-		Self(val)
-	}
-}
-
-pub type SizedCompRw<T> = SizedComp<LRefCell<T>>;
-
-impl<T> SizedCompRw<T> {
-	pub fn new_lrw(lock: Lock, value: T) -> Self {
-		Self(LRefCell::new(lock, value))
-	}
-}
-
-unsafe impl<T: 'static> ComponentList for SizedComp<T> {
-	type Bundle = T;
-
-	fn to_bundle(self) -> Self::Bundle {
-		self.0
-	}
-
-	fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
-		builder.push_sized::<T>(offset);
-	}
-}
-
-pub struct UnsizedComp<T, L>(pub T, pub L);
-
-unsafe impl<T: 'static, L: UnsizingList<T>> ComponentList for UnsizedComp<T, L> {
-	type Bundle = T;
-
-	fn to_bundle(self) -> Self::Bundle {
-		self.0
-	}
-
-	fn write_comp_offset_map(&self, builder: &mut ArchetypeBuilder, offset: usize) {
-		builder.push_sized::<T>(offset);
-		self.1.write_alias_offset_map(builder, offset);
-	}
-}
-
-// === Archetype Entry === //
-
-union ArchetypeEntry {
-	sized: usize,
-	unsizer: ManuallyDrop<UnsizedArchetypeEntry>,
-}
-
-type DynCasterInlined = BoxableInlineStore<fn(&()) -> &dyn All>;
-type DynExecutorInlined = BoxableInlineStore<DynExecutor<dyn All>>;
-
-type DynExecutor<T> = unsafe fn(*const u8, &DynCasterInlined) -> *const T;
-
-struct UnsizedArchetypeEntry {
-	offset: usize,
-	caster: DynCasterInlined,
-	executor: DynExecutorInlined,
-}
-
-// === Archetype === //
-
-pub struct ArchetypeBuilder {
-	entries: HashMap<NamedTypeId, ArchetypeEntry>,
-}
-
-impl ArchetypeBuilder {
-	fn new() -> Self {
+	pub unsafe fn from_raw_unchecked(raw: RawTypedKey) -> Self {
 		Self {
-			entries: Default::default(),
+			_ty: PhantomData,
+			raw,
 		}
 	}
 
-	fn push_sized<T: 'static>(&mut self, offset: usize) {
-		#[rustfmt::skip]
-        self.entries.insert(
-            NamedTypeId::of::<T>(),
-            ArchetypeEntry {
-				sized: offset,
-			},
-        );
+	pub fn raw(self) -> RawTypedKey {
+		self.raw
 	}
 
-	fn push_unsized<I, T: ?Sized + 'static>(&mut self, offset: usize, caster: fn(&I) -> &T) {
-		assert!(must_be_unsized::<T>());
+	// === Constructors === //
 
-		unsafe fn executor<I, T: ?Sized>(comp: *const u8, caster: &DynCasterInlined) -> *const T {
-			let comp = &*comp.cast::<I>();
-			let caster = caster.decode_maybe_boxed::<fn(&I) -> &T>();
-
-			(caster)(comp)
+	pub fn instance() -> Self {
+		Self {
+			_ty: PhantomData,
+			raw: RawTypedKey::Instance(NamedTypeId::of::<T>()),
 		}
-
-		#[rustfmt::skip]
-        self.entries.insert(
-            NamedTypeId::of::<T>(),
-            ArchetypeEntry {
-				unsizer: ManuallyDrop::new(UnsizedArchetypeEntry {
-					offset,
-					caster: DynCasterInlined::new_maybe_boxed(caster),
-					executor: DynExecutorInlined::new_maybe_boxed::<DynExecutor<T>>(executor::<I, T>)
-				})
-			},
-        );
 	}
 
-	fn finalize(self) -> Archetype {
-		Archetype {
-			entries: self.entries,
+	pub fn proxy<P>() -> Self
+	where
+		P: ?Sized + KeyProxyFor<Target = T>,
+	{
+		Self {
+			_ty: PhantomData,
+			raw: RawTypedKey::Proxy(NamedTypeId::of::<P>()),
+		}
+	}
+
+	pub fn dynamic() -> Self {
+		static ID_GEN: AtomicU64 = AtomicU64::new(0);
+
+		let id = ID_GEN
+			.fetch_update(Relaxed, Relaxed, |val| {
+				Some(
+					val.checked_add(1)
+						.expect("cannot create more than u64::MAX dynamic keys!"),
+				)
+			})
+			.unwrap();
+
+		Self {
+			_ty: PhantomData,
+			raw: RawTypedKey::Runtime(id),
 		}
 	}
 }
 
-struct Archetype {
-	entries: HashMap<NamedTypeId, ArchetypeEntry>,
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub enum RawTypedKey {
+	Instance(NamedTypeId),
+	Proxy(NamedTypeId),
+	Runtime(u64),
 }
 
-impl fmt::Debug for Archetype {
+impl<T: ?Sized + 'static> From<TypedKey<T>> for RawTypedKey {
+	fn from(key: TypedKey<T>) -> Self {
+		key.raw()
+	}
+}
+
+// === Provider === //
+
+// Standard traits
+pub trait ProviderTarget<'r> {
+	type SpecificProvider: ProviderTargetSpecific<'r>; // Typically either `Self` or `!`.
+
+	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider>;
+
+	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T);
+
+	fn propose<T: ?Sized + 'static>(&mut self, value: &'r T) {
+		self.propose_in(TypedKey::instance(), value)
+	}
+}
+
+pub trait ProviderTargetSpecific<'r> {
+	fn desired_key(&self) -> RawTypedKey;
+	fn is_target_set(&self) -> bool;
+	fn set_target<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T);
+	unsafe fn set_target_unchecked<T: ?Sized + 'static>(&mut self, value: &'r T);
+}
+
+pub trait Provider {
+	fn provide<'r, U>(&'r self, target: &mut U)
+	where
+		U: ?Sized + ProviderTarget<'r>;
+}
+
+pub trait DynProvider {
+	fn provide_dyn<'r>(&'r self, target: &mut DynamicProviderTarget<'r>);
+
+	fn key_list(&self) -> Vec<RawTypedKey>;
+}
+
+impl<T: ?Sized + Provider> DynProvider for T {
+	fn provide_dyn<'r>(&'r self, target: &mut DynamicProviderTarget<'r>) {
+		self.provide(target);
+	}
+
+	fn key_list(&self) -> Vec<RawTypedKey> {
+		let mut list = KeyListProviderTarget::default();
+		self.provide(&mut list);
+		list.0
+	}
+}
+
+// Standard targets
+#[repr(C)]
+pub struct StaticProviderTarget<'r, D: ?Sized + 'static> {
+	key: TypedKey<D>,
+	is_set: bool,
+	value: Option<&'r D>,
+}
+
+impl<'r, D: ?Sized + 'static> StaticProviderTarget<'r, D> {
+	pub fn new(key: TypedKey<D>) -> Self {
+		Self {
+			key,
+			is_set: false,
+			value: None,
+		}
+	}
+
+	pub fn provided_value(&self) -> Option<&'r D> {
+		self.value
+	}
+}
+
+impl<'r, D: ?Sized + 'static> StaticProviderTarget<'r, D> {
+	pub fn as_dynamic_provider(&mut self) -> &mut DynamicProviderTarget<'r> {
+		unsafe {
+			// Safety: we're both `repr(C)`, the first field `TypedKey<D>` is `repr(transparent)`
+			// w.r.t. `RawTypedKey`, and the second field of both structures are booleans.
+			self.cast_mut_via_ptr(|p| p as *mut DynamicProviderTarget)
+		}
+	}
+}
+
+impl<'r, D: ?Sized + 'static> ProviderTarget<'r> for StaticProviderTarget<'r, D> {
+	type SpecificProvider = Self;
+
+	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider> {
+		Some(self)
+	}
+
+	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
+		if self.key.raw() != key.raw() {
+			return;
+		}
+
+		debug_assert!(
+			!self.is_target_set(),
+			"More than one component with the key {key:?} was provided."
+		);
+
+		self.set_target(key, value);
+	}
+}
+
+impl<'r, D: ?Sized + 'static> ProviderTargetSpecific<'r> for StaticProviderTarget<'r, D> {
+	fn desired_key(&self) -> RawTypedKey {
+		self.key.raw()
+	}
+
+	fn is_target_set(&self) -> bool {
+		self.is_set
+	}
+
+	fn set_target<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
+		assert_eq!(self.key.raw(), key.raw());
+
+		unsafe {
+			// Safety: in this case, the unchecked variant is entirely safe.
+			self.set_target_unchecked(value);
+		}
+	}
+
+	unsafe fn set_target_unchecked<T: ?Sized + 'static>(&mut self, value: &'r T) {
+		self.value = Some(runtime_unify_ref(value));
+		self.is_set = true;
+	}
+}
+
+#[repr(C)]
+pub struct DynamicProviderTarget<'r> {
+	_ty: PhantomData<&'r ()>,
+	key: RawTypedKey,
+	is_set: bool,
+}
+
+impl<'r> DynamicProviderTarget<'r> {
+	pub unsafe fn as_static_provider_unchecked<D: ?Sized + 'static>(
+		&mut self,
+	) -> &mut StaticProviderTarget<'r, D> {
+		// Safety: provided by caller
+		self.cast_mut_via_ptr(|p| p as *mut StaticProviderTarget<'r, D>)
+	}
+
+	pub fn as_static_provider<D: ?Sized + 'static>(
+		&mut self,
+		key: TypedKey<D>,
+	) -> &mut StaticProviderTarget<'r, D> {
+		assert_eq!(self.key, key.raw());
+
+		unsafe { self.as_static_provider_unchecked() }
+	}
+}
+
+impl<'r> ProviderTarget<'r> for DynamicProviderTarget<'r> {
+	type SpecificProvider = Self;
+
+	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider> {
+		Some(self)
+	}
+
+	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
+		if self.key == key.raw() {
+			self.as_static_provider(key).propose_in(key, value);
+		}
+	}
+}
+
+impl<'r> ProviderTargetSpecific<'r> for DynamicProviderTarget<'r> {
+	fn desired_key(&self) -> RawTypedKey {
+		self.key
+	}
+
+	fn is_target_set(&self) -> bool {
+		self.is_set
+	}
+
+	fn set_target<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
+		self.as_static_provider(key).set_target(key, value);
+	}
+
+	unsafe fn set_target_unchecked<T: ?Sized + 'static>(&mut self, value: &'r T) {
+		self.as_static_provider_unchecked::<T>()
+			.set_target_unchecked(value);
+	}
+}
+
+#[derive(Debug, Default)]
+pub struct KeyListProviderTarget(pub Vec<RawTypedKey>);
+
+impl<'a> ProviderTarget<'a> for KeyListProviderTarget {
+	type SpecificProvider = DynamicProviderTarget<'a>; // TODO: This should become `!` once it stabilizes.
+
+	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider> {
+		None
+	}
+
+	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, _value: &'a T) {
+		self.0.push(key.raw());
+	}
+}
+
+// === ProviderExt === //
+
+#[derive_where(Clone)]
+#[derive(Error)]
+pub struct MissingComponentError<'a, P: ?Sized + DynProvider> {
+	target: &'a P,
+	request: RawTypedKey,
+}
+
+impl<P: ?Sized + DynProvider> fmt::Debug for MissingComponentError<'_, P> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.debug_struct("Archetype")
-			.field("entries", &self.entries.keys().collect::<Vec<_>>())
+		f.debug_struct("MissingComponentError")
+			.field("request", &self.request)
 			.finish_non_exhaustive()
 	}
 }
 
-impl Archetype {
-	fn access<T: ?Sized + 'static>(&self, header: *const EntityHeader) -> Option<*const T> {
-		let entry = self.entries.get(&TypeId::of::<T>())?;
-
-		if !must_be_unsized::<T>() {
-			let offset = unsafe { entry.sized };
-
-			let header = header.cast::<u8>();
-			let ptr = unsafe {
-				sizealign_checked_transmute::<*const u8, *const T>(header.wrapping_add(offset))
-			};
-
-			Some(ptr)
-		} else {
-			Some(unsafe {
-				let unsizer = &entry.unsizer;
-				let ptr = header.cast::<u8>().wrapping_add(unsizer.offset);
-				let executor = unsizer.executor.decode_maybe_boxed::<DynExecutor<T>>();
-				let casted = (executor)(ptr, &unsizer.caster);
-				casted
-			})
-		}
-	}
-}
-
-// === ArchetypeDB === //
-
-#[derive(Default)]
-struct ArchetypeDB {
-	archetypes: RwLock<HashMap<TypeId, &'static Archetype>>,
-}
-
-impl ArchetypeDB {
-	fn get() -> &'static Self {
-		static DB: OnceCell<ArchetypeDB> = OnceCell::new();
-
-		DB.get_or_init(Self::default)
-	}
-
-	fn get_archetype<C: ComponentList>(sample_bundle: &C) -> &'static Archetype {
-		let db = Self::get();
-
-		let arch_id = TypeId::of::<C>();
-		let map_guard = db.archetypes.read().expect("ArchetypeDB poisoned");
-
-		if let Some(archetype) = map_guard.get(&arch_id) {
-			*archetype
-		} else {
-			drop(map_guard);
-			let mut map_guard = db.archetypes.write().expect("ArchetypeDB poisoned");
-
-			*map_guard.entry(arch_id).or_insert_with(|| {
-				let mut builder = ArchetypeBuilder::new();
-				let [_, bundle_offset] = <(EntityHeader, C::Bundle)>::offsets();
-
-				sample_bundle.write_comp_offset_map(&mut builder, bundle_offset);
-				leak_alloc(builder.finalize())
-			})
-		}
-	}
-}
-
-// === Error Types === //
-
-#[derive(Debug, Clone, Error)]
-pub struct MissingComponentError {
-	arch: &'static Archetype,
-	comp: NamedTypeId,
-}
-
-impl fmt::Display for MissingComponentError {
+impl<P: ?Sized + DynProvider> fmt::Display for MissingComponentError<'_, P> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		writeln!(f, "missing component of type {:?}", self.comp)?;
-		write!(f, "available components: ")?;
-		if self.arch.entries.is_empty() {
-			write!(f, "none")?;
+		write!(f, "failed to fetch component under key {:?}", self.request)?;
+
+		let keys = self.target.key_list();
+
+		if keys.is_empty() {
+			write!(f, "; provider has no entries.")?;
 		} else {
-			let mut iter = self.arch.entries.keys();
-			write!(f, "{:?}", iter.next().unwrap())?;
-
-			for key in iter {
-				write!(f, ", {key:?}")?;
-			}
-
-			writeln!(f, ".")?;
+			write!(
+				f,
+				"; provider exposes components: {}",
+				keys.iter().map(|v| format!("{v:?}")).format(",")
+			)?;
 		}
 
 		Ok(())
 	}
 }
 
-// === Entity Core === //
+pub trait ProviderExt: DynProvider {
+	fn try_get_in<T: ?Sized + 'static>(
+		&self,
+		key: TypedKey<T>,
+	) -> Result<&T, MissingComponentError<'_, Self>>;
 
-pub unsafe trait AnyEntity {}
-
-#[repr(C)]
-pub struct Entity<T: ComponentList> {
-	header: EntityHeader,
-	bundle: T::Bundle,
-}
-
-struct EntityHeader {
-	archetype: &'static Archetype,
-}
-
-impl<T: ComponentList> Entity<T> {
-	pub fn new(list: T) -> Self {
-		Self {
-			header: EntityHeader {
-				archetype: ArchetypeDB::get_archetype::<T>(&list),
-			},
-			bundle: list.to_bundle(),
-		}
-	}
-}
-
-unsafe impl<T: ComponentList> AnyEntity for Entity<T> {}
-
-// === Entity Access === //
-
-pub type ArcEntity = Arc<dyn AnyEntity + Send + Sync>;
-pub type WeakArcEntity = Weak<dyn AnyEntity + Send + Sync>;
-
-impl<T: ComponentList> Entity<T> {
-	pub fn new_arc(list: T) -> Arc<Self> {
-		Arc::new(Entity::new(list))
-	}
-}
-
-pub trait EntityView: AnyEntity {
-	// === Base === //
-
-	fn try_get_raw<T: ?Sized + 'static>(&self) -> Result<*const T, MissingComponentError> {
-		let header = unsafe { self.cast_ref_via_ptr(|ptr| ptr as *const EntityHeader) };
-
-		header
-			.archetype
-			.access(header)
-			.ok_or_else(|| MissingComponentError {
-				arch: header.archetype,
-				comp: NamedTypeId::of::<T>(),
-			})
+	fn try_get<T: ?Sized + 'static>(&self) -> Result<&T, MissingComponentError<Self>> {
+		self.try_get_in(TypedKey::instance())
 	}
 
-	fn get_raw<T: ?Sized + 'static>(&self) -> *const T {
-		self.try_get_raw::<T>().unwrap_pretty()
-	}
-
-	fn try_get<T: ?Sized + 'static>(&self) -> Result<&T, MissingComponentError> {
-		unsafe { self.try_cast_ref_via_ptr(|_| self.try_get_raw::<T>()) }
-	}
-
-	fn get<T: ?Sized + 'static>(&self) -> &T {
-		self.try_get().unwrap_pretty()
+	fn has_in<T: ?Sized + 'static>(&self, key: TypedKey<T>) -> bool {
+		self.try_get_in(key).is_ok()
 	}
 
 	fn has<T: ?Sized + 'static>(&self) -> bool {
-		self.try_get::<T>().is_ok()
+		self.has_in(TypedKey::<T>::instance())
 	}
 
-	// === RwLock integration === //
+	fn get_in<T: ?Sized + 'static>(&self, key: TypedKey<T>) -> &T {
+		self.try_get_in(key).unwrap_pretty()
+	}
 
-	// TODO: Allow heterogeneous multi-borrow
+	fn get<T: ?Sized + 'static>(&self) -> &T {
+		self.get_in(TypedKey::instance())
+	}
+
+	fn use_ref_in<T, F, R>(&self, session: Session, key: TypedKey<LRefCell<T>>, f: F) -> R
+	where
+		T: ?Sized + 'static,
+		F: FnOnce(&T) -> R,
+	{
+		self.get_in(key).use_ref(session, |v| f(v))
+	}
+
 	fn use_ref<T, F, R>(&self, session: Session, f: F) -> R
 	where
 		T: ?Sized + 'static,
 		F: FnOnce(&T) -> R,
 	{
-		self.get::<LRefCell<T>>().use_ref(session, f)
+		self.use_ref_in(session, TypedKey::instance(), f)
+	}
+
+	fn use_mut_in<T, F, R>(&self, session: Session, key: TypedKey<LRefCell<T>>, f: F) -> R
+	where
+		T: ?Sized + 'static,
+		F: FnOnce(&mut T) -> R,
+	{
+		self.get_in(key).use_mut(session, |v| f(v))
 	}
 
 	fn use_mut<T, F, R>(&self, session: Session, f: F) -> R
@@ -389,50 +387,61 @@ pub trait EntityView: AnyEntity {
 		T: ?Sized + 'static,
 		F: FnOnce(&mut T) -> R,
 	{
-		self.get::<LRefCell<T>>().use_mut(session, f)
+		self.use_mut_in(session, TypedKey::instance(), f)
 	}
 }
 
-impl<T: ?Sized + AnyEntity> EntityView for T {}
+impl<P: ?Sized + DynProvider> ProviderExt for P {
+	fn try_get_in<T: ?Sized + 'static>(
+		&self,
+		key: TypedKey<T>,
+	) -> Result<&T, MissingComponentError<'_, Self>> {
+		let mut target = StaticProviderTarget::new(key);
+		self.provide_dyn(target.as_dynamic_provider());
+		target.provided_value().ok_or(MissingComponentError {
+			target: self,
+			request: key.raw(),
+		})
+	}
+}
 
-// === Unit Tests === //
+// === Tests === //
 
 #[cfg(test)]
 mod tests {
-	use std::any::Any;
-
-	use crate::entity::{BorrowMutability, Lock, SessionGuard};
-
 	use super::*;
 
 	#[test]
-	fn entity_basic_test() {
-		// Create session
-		let lock = Lock::new("lock");
+	fn static_example() {
+		struct Foo {
+			a: u32,
+			b: i32,
+			c: String,
+		}
 
-		let session = SessionGuard::new_tls();
-		let s = session.handle();
+		impl Provider for Foo {
+			fn provide<'r, U>(&'r self, target: &mut U)
+			where
+				U: ?Sized + ProviderTarget<'r>,
+			{
+				target.propose(&self.a);
+				target.propose(&self.b);
+				target.propose::<String>(&self.c);
+				target.propose::<str>(&self.c);
+			}
+		}
 
-		s.acquire_locks([(lock, BorrowMutability::Mutable)]);
+		let foo = Foo {
+			a: 3,
+			b: 4,
+			c: "foo".to_string(),
+		};
 
-		// Create entity
-		let my_entity = Entity::new((
-			SizedComp(3i32),
-			SizedComp::new_lrw(lock, 4u32),
-			UnsizedComp(8usize, (|x| x as &dyn Any) as fn(&usize) -> &dyn Any),
-		));
+		let bar = &foo as &dyn DynProvider;
 
-		assert!(my_entity.try_get::<i32>().is_ok());
-		assert!(my_entity.try_get::<u32>().is_err());
-		assert_eq!(*my_entity.get::<i32>(), 3);
-		assert_eq!(
-			my_entity.get::<dyn Any>().downcast_ref::<usize>().copied(),
-			Some(8)
-		);
-
-		my_entity.use_mut(s, |val: &mut u32| {
-			*val += 1;
-			assert_eq!(*val, 5);
-		});
+		assert_eq!(*bar.get::<u32>(), 3);
+		assert_eq!(*bar.get::<i32>(), 4);
+		assert_eq!(bar.get::<String>(), "foo");
+		assert_eq!(bar.get::<str>(), "foo");
 	}
 }
