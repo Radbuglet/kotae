@@ -1,12 +1,18 @@
 use std::{
 	any::TypeId,
+	marker::PhantomData,
 	mem::{self, ManuallyDrop, MaybeUninit},
+	ops::{Deref, DerefMut},
 	ptr,
 };
+
+// === Allocation === //
 
 pub fn leak_alloc<'a, T>(val: T) -> &'a mut T {
 	Box::leak(Box::new(val))
 }
+
+// === Pointer Casts === //
 
 pub trait PointeeCastExt {
 	type Pointee: ?Sized;
@@ -32,10 +38,14 @@ pub trait PointeeCastExt {
 	where
 		R: ?Sized,
 		F: FnOnce(*mut Self::Pointee) -> Result<*mut R, E>;
+
+	unsafe fn transmute_pointee_ref<T: ?Sized>(&self) -> &T;
+
+	unsafe fn transmute_pointee_mut<T: ?Sized>(&mut self) -> &mut T;
 }
 
-impl<T: ?Sized> PointeeCastExt for T {
-	type Pointee = T;
+impl<P: ?Sized> PointeeCastExt for P {
+	type Pointee = P;
 
 	fn as_byte_ptr(&self) -> *const u8 {
 		self as *const Self as *const u8
@@ -72,7 +82,17 @@ impl<T: ?Sized> PointeeCastExt for T {
 	{
 		Ok(&mut *f(self)?)
 	}
+
+	unsafe fn transmute_pointee_ref<T: ?Sized>(&self) -> &T {
+		sizealign_checked_transmute(self)
+	}
+
+	unsafe fn transmute_pointee_mut<T: ?Sized>(&mut self) -> &mut T {
+		sizealign_checked_transmute(self)
+	}
 }
+
+// === Transmute === //
 
 pub const unsafe fn entirely_unchecked_transmute<A, B>(a: A) -> B {
 	union Punny<A, B> {
@@ -97,6 +117,28 @@ pub const unsafe fn sizealign_checked_transmute<A, B>(a: A) -> B {
 
 	entirely_unchecked_transmute(a)
 }
+
+// === Runtime type unification === //
+
+pub fn runtime_unify<A: 'static, B: 'static>(a: A) -> B {
+	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+
+	unsafe { sizealign_checked_transmute(a) }
+}
+
+pub fn runtime_unify_ref<A: ?Sized + 'static, B: ?Sized + 'static>(a: &A) -> &B {
+	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+
+	unsafe { sizealign_checked_transmute(a) }
+}
+
+pub fn runtime_unify_mut<A: ?Sized + 'static, B: ?Sized + 'static>(a: &mut A) -> &mut B {
+	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+
+	unsafe { sizealign_checked_transmute(a) }
+}
+
+// === Offset-of === //
 
 pub unsafe trait OffsetOfReprC {
 	type OffsetArray: AsRef<[usize]>;
@@ -129,24 +171,46 @@ macro_rules! impl_tup_offsets {
 
 impl_tuples!(impl_tup_offsets);
 
+// === Type Erasure === //
+
 pub trait All {}
 
 impl<T: ?Sized> All for T {}
 
-pub fn runtime_unify<A: 'static, B: 'static>(a: A) -> B {
-	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
-
-	unsafe { sizealign_checked_transmute(a) }
+#[repr(transparent)]
+pub struct Incomplete<T> {
+	_ty: PhantomData<T>,
+	_erased: dyn All,
 }
 
-pub fn runtime_unify_ref<A: ?Sized + 'static, B: ?Sized + 'static>(a: &A) -> &B {
-	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+impl<T> Incomplete<T> {
+	pub fn new_ref(value: &T) -> &Incomplete<T> {
+		unsafe { value.cast_ref_via_ptr(|ptr| ptr as *const dyn All as *const Incomplete<T>) }
+	}
 
-	unsafe { sizealign_checked_transmute(a) }
+	pub fn new_mut(value: &mut T) -> &mut Incomplete<T> {
+		unsafe { value.cast_mut_via_ptr(|ptr| ptr as *mut dyn All as *mut Incomplete<T>) }
+	}
+
+	pub unsafe fn cast<U>(me: &Self) -> &Incomplete<U> {
+		me.cast_ref_via_ptr(|ptr| ptr as *const Incomplete<U>)
+	}
+
+	pub unsafe fn cast_mut<U>(me: &mut Self) -> &mut Incomplete<U> {
+		me.cast_mut_via_ptr(|ptr| ptr as *mut Incomplete<U>)
+	}
 }
 
-pub fn runtime_unify_mut<A: ?Sized + 'static, B: ?Sized + 'static>(a: &mut A) -> &mut B {
-	assert_eq!(TypeId::of::<A>(), TypeId::of::<B>());
+impl<T> Deref for Incomplete<T> {
+	type Target = T;
 
-	unsafe { sizealign_checked_transmute(a) }
+	fn deref(&self) -> &Self::Target {
+		unsafe { self.cast_ref_via_ptr(|ptr| ptr as *const T) }
+	}
+}
+
+impl<T> DerefMut for Incomplete<T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		unsafe { self.cast_mut_via_ptr(|ptr| ptr as *mut T) }
+	}
 }

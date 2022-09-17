@@ -1,23 +1,26 @@
 use std::{
 	fmt,
 	marker::PhantomData,
-	sync::atomic::{AtomicU64, Ordering::Relaxed},
+	sync::{
+		atomic::{AtomicU64, Ordering::Relaxed},
+		Arc, Weak,
+	},
 };
 
 use derive_where::derive_where;
 use itertools::Itertools;
 use thiserror::Error;
 
+use super::lock::{LRefCell, Session};
+
 use crate::{
 	debug::{error::ResultExt, type_id::NamedTypeId},
-	mem::ptr::{runtime_unify_ref, PointeeCastExt},
+	mem::ptr::{Incomplete, PointeeCastExt},
 };
-
-use super::lock::{LRefCell, Session};
 
 // === TypedKey === //
 
-pub trait KeyProxyFor: 'static {
+pub trait KeyProxy: 'static {
 	type Target: ?Sized + 'static;
 }
 
@@ -59,7 +62,7 @@ impl<T: ?Sized + 'static> TypedKey<T> {
 
 	pub fn proxy<P>() -> Self
 	where
-		P: ?Sized + KeyProxyFor<Target = T>,
+		P: ?Sized + KeyProxy<Target = T>,
 	{
 		Self {
 			_ty: PhantomData,
@@ -101,197 +104,98 @@ impl<T: ?Sized + 'static> From<TypedKey<T>> for RawTypedKey {
 
 // === Provider === //
 
-// Standard traits
-pub trait ProviderTarget<'r> {
-	type SpecificProvider: ProviderTargetSpecific<'r>; // Typically either `Self` or `!`.
-
-	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider>;
-
-	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T);
-
-	fn propose<T: ?Sized + 'static>(&mut self, value: &'r T) {
-		self.propose_in(TypedKey::instance(), value)
-	}
-}
-
-pub trait ProviderTargetSpecific<'r> {
-	fn desired_key(&self) -> RawTypedKey;
-	fn is_target_set(&self) -> bool;
-	fn set_target<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T);
-	unsafe fn set_target_unchecked<T: ?Sized + 'static>(&mut self, value: &'r T);
-}
-
 pub trait Provider {
-	fn provide<'r, U>(&'r self, target: &mut U)
-	where
-		U: ?Sized + ProviderTarget<'r>;
-}
+	fn provide<'r>(&'r self, demand: &mut Demand<'r>);
 
-pub trait DynProvider {
-	fn provide_dyn<'r>(&'r self, target: &mut DynamicProviderTarget<'r>);
-
-	fn key_list(&self) -> Vec<RawTypedKey>;
-}
-
-impl<T: ?Sized + Provider> DynProvider for T {
-	fn provide_dyn<'r>(&'r self, target: &mut DynamicProviderTarget<'r>) {
-		self.provide(target);
-	}
-
-	fn key_list(&self) -> Vec<RawTypedKey> {
-		let mut list = KeyListProviderTarget::default();
-		self.provide(&mut list);
-		list.0
-	}
-}
-
-// Standard targets
-#[repr(C)]
-pub struct StaticProviderTarget<'r, D: ?Sized + 'static> {
-	key: TypedKey<D>,
-	is_set: bool,
-	value: Option<&'r D>,
-}
-
-impl<'r, D: ?Sized + 'static> StaticProviderTarget<'r, D> {
-	pub fn new(key: TypedKey<D>) -> Self {
-		Self {
-			key,
-			is_set: false,
-			value: None,
+	unsafe fn provide_single<'r>(&'r self, demand: &mut Demand<'r>) {
+		match demand.kind() {
+			DemandKind::FetchSingle(_) => {}
+			// Safety: provided by caller
+			_ => std::hint::unreachable_unchecked(),
 		}
-	}
-
-	pub fn provided_value(&self) -> Option<&'r D> {
-		self.value
+		self.provide(demand);
 	}
 }
 
-impl<'r, D: ?Sized + 'static> StaticProviderTarget<'r, D> {
-	pub fn as_dynamic_provider(&mut self) -> &mut DynamicProviderTarget<'r> {
-		unsafe {
-			// Safety: we're both `repr(C)`, the first field `TypedKey<D>` is `repr(transparent)`
-			// w.r.t. `RawTypedKey`, and the second field of both structures are booleans.
-			self.cast_mut_via_ptr(|p| p as *mut DynamicProviderTarget)
-		}
-	}
-}
-
-impl<'r, D: ?Sized + 'static> ProviderTarget<'r> for StaticProviderTarget<'r, D> {
-	type SpecificProvider = Self;
-
-	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider> {
-		Some(self)
-	}
-
-	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
-		if self.key.raw() != key.raw() {
-			return;
-		}
-
-		debug_assert!(
-			!self.is_target_set(),
-			"More than one component with the key {key:?} was provided."
-		);
-
-		self.set_target(key, value);
-	}
-}
-
-impl<'r, D: ?Sized + 'static> ProviderTargetSpecific<'r> for StaticProviderTarget<'r, D> {
-	fn desired_key(&self) -> RawTypedKey {
-		self.key.raw()
-	}
-
-	fn is_target_set(&self) -> bool {
-		self.is_set
-	}
-
-	fn set_target<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
-		assert_eq!(self.key.raw(), key.raw());
-
-		unsafe {
-			// Safety: in this case, the unchecked variant is entirely safe.
-			self.set_target_unchecked(value);
-		}
-	}
-
-	unsafe fn set_target_unchecked<T: ?Sized + 'static>(&mut self, value: &'r T) {
-		self.value = Some(runtime_unify_ref(value));
-		self.is_set = true;
-	}
-}
-
-#[repr(C)]
-pub struct DynamicProviderTarget<'r> {
+#[repr(transparent)]
+pub struct Demand<'r> {
 	_ty: PhantomData<&'r ()>,
-	key: RawTypedKey,
-	is_set: bool,
+	erased: Incomplete<DemandKind>,
 }
 
-impl<'r> DynamicProviderTarget<'r> {
-	pub unsafe fn as_static_provider_unchecked<D: ?Sized + 'static>(
-		&mut self,
-	) -> &mut StaticProviderTarget<'r, D> {
-		// Safety: provided by caller
-		self.cast_mut_via_ptr(|p| p as *mut StaticProviderTarget<'r, D>)
-	}
-
-	pub fn as_static_provider<D: ?Sized + 'static>(
-		&mut self,
-		key: TypedKey<D>,
-	) -> &mut StaticProviderTarget<'r, D> {
-		assert_eq!(self.key, key.raw());
-
-		unsafe { self.as_static_provider_unchecked() }
-	}
+#[derive(Debug, Copy, Clone)]
+#[non_exhaustive]
+pub enum DemandKind {
+	FetchSingle(RawTypedKey),
+	EnumerateKeys,
+	CompareLists,
 }
 
-impl<'r> ProviderTarget<'r> for DynamicProviderTarget<'r> {
-	type SpecificProvider = Self;
+#[repr(C)]
+struct DemandSingle<'r, T: ?Sized> {
+	kind: DemandKind,
+	output: Option<&'r T>,
+}
 
-	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider> {
-		Some(self)
-	}
+#[repr(C)]
+struct DemandEnumerate {
+	kind: DemandKind,
+	collector: Vec<RawTypedKey>,
+}
 
-	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
-		if self.key == key.raw() {
-			self.as_static_provider(key).propose_in(key, value);
+struct DemandCompare<'r> {
+	kind: DemandKind,
+	remaining: &'r [RawTypedKey],
+	success: bool,
+}
+
+impl<'r> Demand<'r> {
+	fn from_erased(erased: &mut Incomplete<DemandKind>) -> &mut Self {
+		unsafe {
+			// Safety: this type is repr(transparent) w.r.t. `Incomplete<DemandKind>`
+			erased.cast_mut_via_ptr(|ptr| ptr as *mut Self)
 		}
 	}
-}
 
-impl<'r> ProviderTargetSpecific<'r> for DynamicProviderTarget<'r> {
-	fn desired_key(&self) -> RawTypedKey {
-		self.key
+	pub fn kind(&self) -> DemandKind {
+		*self.erased
 	}
 
-	fn is_target_set(&self) -> bool {
-		self.is_set
+	pub fn provide_in<T: ?Sized>(&mut self, key: TypedKey<T>, value: &'r T) -> &mut Self {
+		match self.kind() {
+			DemandKind::FetchSingle(desired_key) => {
+				if key.raw() == desired_key {
+					let demand =
+						unsafe { Incomplete::cast_mut::<DemandSingle<'r, T>>(&mut self.erased) };
+
+					debug_assert!(demand.output.is_none());
+					demand.output = Some(value);
+				}
+			}
+			DemandKind::EnumerateKeys => {
+				let demand = unsafe { Incomplete::cast_mut::<DemandEnumerate>(&mut self.erased) };
+
+				demand.collector.push(key.raw());
+			}
+			DemandKind::CompareLists => {
+				let demand = unsafe { Incomplete::cast_mut::<DemandCompare>(&mut self.erased) };
+
+				if demand
+					.remaining
+					.get(0)
+					.map_or(false, |expected| key.raw() == *expected)
+				{
+					demand.remaining = &demand.remaining[1..];
+				} else {
+					demand.success = false;
+				}
+			}
+		}
+		self
 	}
 
-	fn set_target<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, value: &'r T) {
-		self.as_static_provider(key).set_target(key, value);
-	}
-
-	unsafe fn set_target_unchecked<T: ?Sized + 'static>(&mut self, value: &'r T) {
-		self.as_static_provider_unchecked::<T>()
-			.set_target_unchecked(value);
-	}
-}
-
-#[derive(Debug, Default)]
-pub struct KeyListProviderTarget(pub Vec<RawTypedKey>);
-
-impl<'a> ProviderTarget<'a> for KeyListProviderTarget {
-	type SpecificProvider = DynamicProviderTarget<'a>; // TODO: This should become `!` once it stabilizes.
-
-	fn as_specific_provider(&mut self) -> Option<&mut Self::SpecificProvider> {
-		None
-	}
-
-	fn propose_in<T: ?Sized + 'static>(&mut self, key: TypedKey<T>, _value: &'a T) {
-		self.0.push(key.raw());
+	pub fn propose<T: ?Sized + 'static>(&mut self, value: &'r T) -> &mut Self {
+		self.provide_in(TypedKey::instance(), value)
 	}
 }
 
@@ -299,12 +203,12 @@ impl<'a> ProviderTarget<'a> for KeyListProviderTarget {
 
 #[derive_where(Clone)]
 #[derive(Error)]
-pub struct MissingComponentError<'a, P: ?Sized + DynProvider> {
+pub struct MissingComponentError<'a, P: ?Sized> {
 	target: &'a P,
 	request: RawTypedKey,
 }
 
-impl<P: ?Sized + DynProvider> fmt::Debug for MissingComponentError<'_, P> {
+impl<P: ?Sized + Provider> fmt::Debug for MissingComponentError<'_, P> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("MissingComponentError")
 			.field("request", &self.request)
@@ -312,11 +216,11 @@ impl<P: ?Sized + DynProvider> fmt::Debug for MissingComponentError<'_, P> {
 	}
 }
 
-impl<P: ?Sized + DynProvider> fmt::Display for MissingComponentError<'_, P> {
+impl<P: ?Sized + Provider> fmt::Display for MissingComponentError<'_, P> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "failed to fetch component under key {:?}", self.request)?;
 
-		let keys = self.target.key_list();
+		let keys = self.target.keys();
 
 		if keys.is_empty() {
 			write!(f, "; provider has no entries.")?;
@@ -332,11 +236,37 @@ impl<P: ?Sized + DynProvider> fmt::Display for MissingComponentError<'_, P> {
 	}
 }
 
-pub trait ProviderExt: DynProvider {
+pub trait ProviderExt: Provider {
+	fn keys(&self) -> Vec<RawTypedKey> {
+		let mut demand = DemandEnumerate {
+			kind: DemandKind::EnumerateKeys,
+			collector: Vec::new(),
+		};
+
+		let demand_erased = Incomplete::new_mut(&mut demand);
+		let demand_erased = unsafe { Incomplete::cast_mut::<DemandKind>(demand_erased) };
+		self.provide(Demand::from_erased(demand_erased));
+
+		demand.collector
+	}
+
 	fn try_get_in<T: ?Sized + 'static>(
 		&self,
 		key: TypedKey<T>,
-	) -> Result<&T, MissingComponentError<'_, Self>>;
+	) -> Result<&T, MissingComponentError<'_, Self>> {
+		let mut demand = DemandSingle {
+			kind: DemandKind::FetchSingle(key.raw()),
+			output: None::<&T>,
+		};
+		let demand_erased = Incomplete::new_mut(&mut demand);
+		let demand_erased = unsafe { Incomplete::cast_mut::<DemandKind>(demand_erased) };
+		self.provide(Demand::from_erased(demand_erased));
+
+		demand.output.ok_or(MissingComponentError {
+			target: self,
+			request: key.raw(),
+		})
+	}
 
 	fn try_get<T: ?Sized + 'static>(&self) -> Result<&T, MissingComponentError<Self>> {
 		self.try_get_in(TypedKey::instance())
@@ -391,17 +321,34 @@ pub trait ProviderExt: DynProvider {
 	}
 }
 
-impl<P: ?Sized + DynProvider> ProviderExt for P {
-	fn try_get_in<T: ?Sized + 'static>(
-		&self,
-		key: TypedKey<T>,
-	) -> Result<&T, MissingComponentError<'_, Self>> {
-		let mut target = StaticProviderTarget::new(key);
-		self.provide_dyn(target.as_dynamic_provider());
-		target.provided_value().ok_or(MissingComponentError {
-			target: self,
-			request: key.raw(),
-		})
+impl<P: ?Sized + Provider> ProviderExt for P {}
+
+// === Archetypal === //
+
+pub type ArcEntity = Arc<Entity>;
+pub type WeakArcEntity = Weak<Entity>;
+
+pub struct Entity<T: ?Sized + Provider = dyn Send + Sync + Provider> {
+	_archetype: (),
+	provider: T,
+}
+
+impl<T: ?Sized + Provider> Entity<T> {
+	pub fn new(provider: T) -> Self
+	where
+		T: Sized,
+	{
+		Self {
+			_archetype: (),
+			provider,
+		}
+	}
+}
+
+impl<T: ?Sized + Provider> Provider for Entity<T> {
+	fn provide<'r>(&'r self, demand: &mut Demand<'r>) {
+		// TODO: Fast-path archetypal components
+		self.provider.provide(demand);
 	}
 }
 
@@ -420,14 +367,12 @@ mod tests {
 		}
 
 		impl Provider for Foo {
-			fn provide<'r, U>(&'r self, target: &mut U)
-			where
-				U: ?Sized + ProviderTarget<'r>,
-			{
-				target.propose(&self.a);
-				target.propose(&self.b);
-				target.propose::<String>(&self.c);
-				target.propose::<str>(&self.c);
+			fn provide<'r>(&'r self, demand: &mut Demand<'r>) {
+				demand
+					.propose(&self.a)
+					.propose(&self.b)
+					.propose::<String>(&self.c)
+					.propose::<str>(&self.c);
 			}
 		}
 
@@ -437,11 +382,18 @@ mod tests {
 			c: "foo".to_string(),
 		};
 
-		let bar = &foo as &dyn DynProvider;
+		let bar = &foo as &dyn Provider;
 
 		assert_eq!(*bar.get::<u32>(), 3);
 		assert_eq!(*bar.get::<i32>(), 4);
 		assert_eq!(bar.get::<String>(), "foo");
 		assert_eq!(bar.get::<str>(), "foo");
+
+		let foo = Entity::new(foo);
+
+		assert_eq!(*foo.get::<u32>(), 3);
+		assert_eq!(*foo.get::<i32>(), 4);
+		assert_eq!(foo.get::<String>(), "foo");
+		assert_eq!(foo.get::<str>(), "foo");
 	}
 }

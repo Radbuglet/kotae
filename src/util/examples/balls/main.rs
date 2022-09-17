@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use macroquad::prelude::*;
 use mid_util::entity::{
-	BorrowMutability, DynProvider, LRefCell, Lock, Provider, ProviderExt, ProviderTarget, Session,
+	ArcEntity, BorrowMutability, Demand, Entity, LRefCell, Lock, Provider, ProviderExt, Session,
 	SessionGuard,
 };
 
 #[derive(Default)]
 pub struct SpatialManager {
-	entities: Vec<Arc<dyn DynProvider>>,
+	entities: Vec<ArcEntity>,
 }
 
 impl SpatialManager {
-	pub fn spawn(&mut self, s: Session, entity: Arc<dyn DynProvider>) {
+	pub fn spawn(&mut self, s: Session, entity: ArcEntity) {
 		entity.use_mut(s, |spatial: &mut Spatial| {
 			debug_assert_eq!(spatial.index, usize::MAX);
 			spatial.index = self.entities.len();
@@ -21,7 +21,7 @@ impl SpatialManager {
 		self.entities.push(entity);
 	}
 
-	pub fn despawn(&mut self, s: Session, entity: &Arc<dyn DynProvider>) {
+	pub fn despawn(&mut self, s: Session, entity: &ArcEntity) {
 		entity.use_mut(s, |spatial: &mut Spatial| {
 			debug_assert_ne!(spatial.index, usize::MAX);
 
@@ -42,7 +42,7 @@ impl SpatialManager {
 		}
 	}
 
-	pub fn entities(&self) -> &[Arc<dyn DynProvider>] {
+	pub fn entities(&self) -> &[ArcEntity] {
 		&self.entities
 	}
 
@@ -51,7 +51,7 @@ impl SpatialManager {
 		s: Session<'a>,
 		pos: Vec2,
 		radius: f32,
-	) -> impl Iterator<Item = &'a Arc<dyn DynProvider>> + 'a {
+	) -> impl Iterator<Item = &'a ArcEntity> + 'a {
 		self.entities.iter().filter(move |entity| {
 			entity.use_ref(s, |spatial: &Spatial| spatial.pos.distance(pos) < radius)
 		})
@@ -182,12 +182,8 @@ impl EngineRootEntity {
 }
 
 impl Provider for EngineRootEntity {
-	fn provide<'r, U>(&'r self, target: &mut U)
-	where
-		U: ?Sized + ProviderTarget<'r>,
-	{
-		target.propose(&self.spatial_mgr);
-		target.propose(&self.sprite_mgr);
+	fn provide<'r>(&'r self, demand: &mut Demand<'r>) {
+		demand.propose(&self.spatial_mgr).propose(&self.sprite_mgr);
 	}
 }
 
@@ -197,12 +193,8 @@ pub struct ThingyEntity {
 }
 
 impl Provider for ThingyEntity {
-	fn provide<'r, U>(&'r self, target: &mut U)
-	where
-		U: ?Sized + ProviderTarget<'r>,
-	{
-		target.propose(&self.spatial);
-		target.propose(&self.sprite);
+	fn provide<'r>(&'r self, demand: &mut Demand<'r>) {
+		demand.propose(&self.spatial).propose(&self.sprite);
 	}
 }
 
@@ -212,27 +204,29 @@ pub struct KinematicThingyEntity {
 }
 
 impl Provider for KinematicThingyEntity {
-	fn provide<'r, U>(&'r self, target: &mut U)
-	where
-		U: ?Sized + ProviderTarget<'r>,
-	{
-		self.base.provide(target);
-		target.propose(&self.kinematic);
+	fn provide<'r>(&'r self, demand: &mut Demand<'r>) {
+		self.base.provide(demand);
+		demand.propose(&self.kinematic);
 	}
 }
 
-fn make_thingy(_s: Session, lock: Lock) -> Arc<dyn DynProvider> {
+fn make_thingy(_s: Session, lock: Lock) -> ArcEntity {
 	let base = ThingyEntity {
 		spatial: LRefCell::new(lock, Default::default()),
-		sprite: LRefCell::new(lock, Sprite { color: Color::from_rgba(fastrand::u8(..), fastrand::u8(..), fastrand::u8(..), 255) }),
+		sprite: LRefCell::new(
+			lock,
+			Sprite {
+				color: Color::from_rgba(fastrand::u8(..), fastrand::u8(..), fastrand::u8(..), 255),
+			},
+		),
 	};
 
 	if fastrand::bool() {
-		Arc::new(KinematicThingyEntity {
+		Arc::new(Entity::new(KinematicThingyEntity {
 			base,
-			kinematic: LRefCell::new(lock, Kinematic::default())
-		})
+			kinematic: LRefCell::new(lock, Kinematic::default()),
+		}))
 	} else {
-		Arc::new(base)
+		Arc::new(Entity::new(base))
 	}
 }
