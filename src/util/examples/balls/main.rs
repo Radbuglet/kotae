@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use macroquad::prelude::*;
-use mid_util::entity::{
-	ArcEntity, BorrowMutability, Demand, Entity, LRefCell, Lock, Provider, ProviderExt, Session,
-	SessionGuard,
-};
+use mid_util::prim::prelude::*;
 
 #[derive(Default)]
 pub struct SpatialManager {

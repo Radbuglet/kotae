@@ -144,9 +144,10 @@ struct DemandEnumerate {
 }
 
 struct DemandCompare<'r> {
+	#[allow(dead_code)] // False positive.
 	kind: DemandKind,
 	remaining: &'r [RawTypedKey],
-	success: bool,
+	condemned: bool,
 }
 
 impl<'r> Demand<'r> {
@@ -187,7 +188,7 @@ impl<'r> Demand<'r> {
 				{
 					demand.remaining = &demand.remaining[1..];
 				} else {
-					demand.success = false;
+					demand.condemned = true;
 				}
 			}
 		}
@@ -296,6 +297,7 @@ pub trait ProviderExt: Provider {
 		self.get_in(key).use_ref(session, |v| f(v))
 	}
 
+	// TODO: Unify with a variadic getter
 	fn use_ref<T, F, R>(&self, session: Session, f: F) -> R
 	where
 		T: ?Sized + 'static,
@@ -321,13 +323,37 @@ pub trait ProviderExt: Provider {
 	}
 }
 
+pub fn key_list_matches<T: ?Sized + Provider>(provider: &T, list: &[RawTypedKey]) -> bool {
+	let mut demand = DemandCompare {
+		kind: DemandKind::CompareLists,
+		remaining: list,
+		condemned: false,
+	};
+
+	let demand_erased = Incomplete::new_mut(&mut demand);
+	let demand_erased = unsafe { Incomplete::cast_mut::<DemandKind>(demand_erased) };
+	provider.provide(Demand::from_erased(demand_erased));
+
+	!demand.condemned && demand.remaining.is_empty()
+}
+
 impl<P: ?Sized + Provider> ProviderExt for P {}
+
+// === Basic Providers === //
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Default)]
+pub struct EmptyProvider;
+
+impl Provider for EmptyProvider {
+	fn provide<'r>(&'r self, _demand: &mut Demand<'r>) {}
+}
 
 // === Archetypal === //
 
 pub type ArcEntity = Arc<Entity>;
 pub type WeakArcEntity = Weak<Entity>;
 
+#[derive(Debug)] // TODO: Add more derives and helpers
 pub struct Entity<T: ?Sized + Provider = dyn Send + Sync + Provider> {
 	_archetype: (),
 	provider: T,
@@ -350,6 +376,10 @@ impl<T: ?Sized + Provider> Provider for Entity<T> {
 		// TODO: Fast-path archetypal components
 		self.provider.provide(demand);
 	}
+}
+
+pub fn new_dangling_weak_entity_arc() -> WeakArcEntity {
+	Weak::<Entity<EmptyProvider>>::new()
 }
 
 // === Tests === //
