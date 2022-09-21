@@ -1,0 +1,18 @@
+{
+  "name": "mid-driver",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "mid-backend": "file://./backend-pkg"
+  },
+  "devDependencies": {
+    "parcel": "^2.7.0"
+  },
+  "scripts": {
+    "prestart": "npm run build-backend",
+    "start": "parcel static/index.html",
+    "build-backend": "cd ../backend && wasm-pack build --out-dir ../driver/backend-pkg --target web"
+  },
+  "author": "",
+  "license": "UNLICENSED"
+}

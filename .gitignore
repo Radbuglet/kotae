@@ -10,4 +10,4 @@ target/
 .DS_Store
 
 # Misc
-private
+__private
