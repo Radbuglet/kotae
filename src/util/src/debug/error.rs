@@ -4,18 +4,16 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 pub trait ErrorFormatExt: Error {
-	fn format_error(&self) -> FormattedError<Self>;
+	fn format_error(&self) -> FormattedError<Self> {
+		FormattedError(self)
+	}
 
 	fn raise(&self) -> ! {
 		panic!("{}", self.format_error());
 	}
 }
 
-impl<T: ?Sized + Error> ErrorFormatExt for T {
-	fn format_error(&self) -> FormattedError<Self> {
-		FormattedError(self)
-	}
-}
+impl<T: ?Sized + Error> ErrorFormatExt for T {}
 
 pub struct FormattedError<'a, T: ?Sized>(pub &'a T);
 

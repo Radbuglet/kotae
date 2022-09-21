@@ -15,8 +15,8 @@ impl<C> InlineStore<C> {
 	pub fn can_accommodate<T>() -> bool {
 		// Alignment
 		mem::align_of::<C>() >= mem::align_of::<T>()
-            // Size
-            && mem::size_of::<C>() >= mem::size_of::<T>()
+			// Size
+			&& mem::size_of::<C>() >= mem::size_of::<T>()
 	}
 
 	pub fn try_new_inline<T>(value: T) -> Result<Self, T> {

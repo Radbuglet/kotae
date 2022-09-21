@@ -72,25 +72,25 @@ pub mod macro_internals {
 }
 
 macro_rules! arr {
-    ($ctor:expr; $size:expr) => {{
-        arr![_ignored => $ctor; $size]
-    }};
-    ($index:ident => $ctor:expr; $size:expr) => {{
-        use $crate::magic::arr::macro_internals::*;
+	($ctor:expr; $size:expr) => {{
+		arr![_ignored => $ctor; $size]
+	}};
+	($index:ident => $ctor:expr; $size:expr) => {{
+		use $crate::magic::arr::macro_internals::*;
 
-        // N.B. const expressions do not inherit the `unsafe` scope from their surroundings.
-        let mut arr = unsafe { MacroArrayBuilder::<_, { $size }>::new() };
+		// N.B. const expressions do not inherit the `unsafe` scope from their surroundings.
+		let mut arr = unsafe { MacroArrayBuilder::<_, { $size }>::new() };
 
-        while arr.init_count < arr.len {
-            arr.array[arr.init_count] = MaybeUninit::new({
-                let $index = arr.init_count;
-                $ctor
-            });
-            arr.init_count += 1;
-        }
+		while arr.init_count < arr.len {
+			arr.array[arr.init_count] = MaybeUninit::new({
+				let $index = arr.init_count;
+				$ctor
+			});
+			arr.init_count += 1;
+		}
 
-        unsafe { arr.unwrap() }
-    }};
+		unsafe { arr.unwrap() }
+	}};
 }
 
 pub fn arr_from_iter<T, I: IntoIterator<Item = T>, const N: usize>(iter: I) -> [T; N] {

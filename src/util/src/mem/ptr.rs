@@ -147,26 +147,26 @@ pub unsafe trait OffsetOfReprC {
 }
 
 macro_rules! impl_tup_offsets {
-    ($($para:ident:$field:tt),*) => {
-        unsafe impl<$($para,)*> OffsetOfReprC for ($($para,)*) {
-            type OffsetArray = [usize; 0 $(+ {
-                ignore!($para);
-                1
-            })*];
+	($($para:ident:$field:tt),*) => {
+		unsafe impl<$($para,)*> OffsetOfReprC for ($($para,)*) {
+			type OffsetArray = [usize; 0 $(+ {
+				ignore!($para);
+				1
+			})*];
 
-            #[allow(unused)]  // For empty tuples.
-            fn offsets() -> Self::OffsetArray {
-                let tup = MaybeUninit::<Self>::uninit();
-                let tup_base = tup.as_ptr();
+			#[allow(unused)]  // For empty tuples.
+			fn offsets() -> Self::OffsetArray {
+				let tup = MaybeUninit::<Self>::uninit();
+				let tup_base = tup.as_ptr();
 
-                [$(
-                    unsafe {
-                        ptr::addr_of!((*tup_base).$field) as usize - tup_base as usize
-                    }
-                ),*]
-            }
-        }
-    };
+				[$(
+					unsafe {
+						ptr::addr_of!((*tup_base).$field) as usize - tup_base as usize
+					}
+				),*]
+			}
+		}
+	};
 }
 
 impl_tuples!(impl_tup_offsets);
