@@ -6,18 +6,14 @@ macro_rules! impl_tuples_with {
 		$(| [
 			$({$($pre:tt)*})*
 		])?
-	) => {
-		// $target!($(
-		//	 $(
-		//		 $($pre)*
-		//	 ),*
-		// )?);
-	};
+	) => { /* terminal recursion case */ };
 	(
 		$target:path : [
 			{$($next:tt)*}
+			// Remaining invocations
 			$($rest:tt)*
 		] $(| [
+			// Accumulated arguments
 			$({$($pre:tt)*})*
 		])?
 	) => {
