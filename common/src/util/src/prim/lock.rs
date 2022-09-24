@@ -497,6 +497,15 @@ pub struct LRefCell<T: ?Sized> {
 	value: SyncUnsafeCell<T>,
 }
 
+impl<T: ?Sized + fmt::Debug> fmt::Debug for LRefCell<T> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		// TODO: Show value if available on TLS session
+		f.debug_struct("LRefCell")
+			.field("lock", &self.lock)
+			.finish_non_exhaustive()
+	}
+}
+
 impl<T: ?Sized> LRefCell<T> {
 	// === Cell management === //
 
@@ -643,6 +652,8 @@ impl<'a, T: ?Sized> Drop for LRefMut<'a, T> {
 		self.cell.lock.store(self.old_state, Relaxed);
 	}
 }
+
+// === Unit Tests === //
 
 #[cfg(test)]
 mod tests {

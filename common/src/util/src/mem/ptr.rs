@@ -92,6 +92,10 @@ impl<P: ?Sized> PointeeCastExt for P {
 	}
 }
 
+pub fn addr_of_ptr<T: ?Sized>(p: *const T) -> usize {
+	p.cast::<()>() as usize
+}
+
 // === Transmute === //
 
 pub const unsafe fn entirely_unchecked_transmute<A, B>(a: A) -> B {

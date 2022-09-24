@@ -1,5 +1,6 @@
 pub mod entity;
 pub mod lock;
+pub mod signal;
 
 pub mod prelude {
 	pub use super::{
