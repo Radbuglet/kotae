@@ -29,7 +29,7 @@ export class Bindable {
         return this.state_ === BindableState.DestroyingInert || this.state_ === BindableState.DestroyingBound;
     }
 
-    get is_condemend(): boolean {
+    get is_condemned(): boolean {
         return this.is_destroying || this.state_ === BindableState.Destroyed;
     }
 
@@ -44,6 +44,9 @@ export class Bindable {
     }
 
     destroy(userdata: unknown) {
+        // Check source state
+        if (this.state_ === BindableState.Destroyed) return;
+
         assert(this.state_ === BindableState.Inert || this.state_ === BindableState.Bound);
 
         // Mark destuction state
@@ -129,7 +132,7 @@ export class Part extends Bindable {
         this.parent = null;
     }
 
-    // TODO: Define a better lifecycle.
+    // TODO: Define a better lifecycle that better handles concurrent tree modification.
     protected onBound(userdata: unknown): void {
         for (const child of this.children) {
             child.attach(userdata);
