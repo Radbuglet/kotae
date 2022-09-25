@@ -1,0 +1,8 @@
+{
+    "name": "kotae",
+    "workspaces": [
+        "src/common",
+        "src/util",
+        "src/web"
+    ]
+}
