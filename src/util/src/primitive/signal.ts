@@ -1,46 +1,33 @@
-import { AnyFunc, ArgsList } from "../util/function";
-import { swapRemove } from "../util/array";
-import { Part } from "./node";
+import { ArgsListOf as ArgsListOf, callFunc } from "../util/function";
+import { CleanupExecutor, Part } from "./node";
 
-// The TypeScript "friend class" system, friends.
-const CONNECTIONS = Symbol("CONNECTIONS");
-const CONNECTION_INDEX = Symbol("CONNECTION_INDEX");
+const CONNECTIONS = Symbol("Signal.CONNECTIONS");
 
-export class Signal<F extends AnyFunc> extends Part {
-    private [CONNECTIONS]: SignalConnection<F>[] = [];
+export class Signal<F> extends Part {
+    public readonly [CONNECTIONS] = new Set<SignalConnection<F>>();
 
-    // TODO: Determine semantics of mid-fire disconnection
     connect(handler: F): SignalConnection<F> {
         const connection = new SignalConnection(this, handler);
-        connection[CONNECTION_INDEX] = this[CONNECTIONS].length;
-        this[CONNECTIONS].push(connection);
-
+        this[CONNECTIONS].add(connection);
         return connection;
     }
 
-    fire(...args: ArgsList<F>) {
+    fire(...args: ArgsListOf<F>) {
         for (const connection of this[CONNECTIONS]) {
-            connection.handler(...args);  // FIXME: Why does this typecheck?!
+            callFunc(connection.handler, ...args);
         }
     }
 
-    disconnectAll() {
-        const connections = this[CONNECTIONS];
-        this[CONNECTIONS] = [];
-
-        for (const connection of connections) {
-            connection.destroy(null);
-        }
-    }
-
-    protected onDestroyed(_: unknown) {
-        this.disconnectAll();
+    protected override onCleanup(cx: CleanupExecutor) {
+        cx.register(this, [], () => {
+            for (const handler of this[CONNECTIONS]) {
+                handler.destroy();
+            }
+        });
     }
 }
 
-export class SignalConnection<F extends AnyFunc> extends Part {
-    public [CONNECTION_INDEX] = -1;
-
+export class SignalConnection<F> extends Part {
     constructor(
         public readonly signal: Signal<F>,
         public readonly handler: F,
@@ -48,15 +35,31 @@ export class SignalConnection<F extends AnyFunc> extends Part {
         super();
     }
 
-    protected onDestroyed(_: unknown) {
-        const index = this[CONNECTION_INDEX];
-        if (index < 0) return;
-
-        const connections = this.signal[CONNECTIONS];
-
-        swapRemove(connections, index);
-        if (index < connections.length) {
-            connections[index][CONNECTION_INDEX] = index;
+    protected override onCleanup(cx: CleanupExecutor) {
+        if (!this.signal.is_condemned) {
+            cx.register(this, [], () => {
+                this.signal[CONNECTIONS].delete(this);
+            });
         }
+    }
+}
+
+export class ListenValue<T> extends Part {
+    public readonly on_changed = this.ensureChild(new Signal<(target: T, old: T) => void>());
+    private value_: T;
+
+    constructor(value: T) {
+        super();
+        this.value_ = value;
+    }
+
+    get value(): T {
+        return this.value_;
+    }
+
+    set value(target: T) {
+        const old = this.value_;
+        this.value_ = target;
+        this.on_changed.fire(target, old);
     }
 }

@@ -1,7 +1,16 @@
 {
     "compilerOptions": {
         "moduleResolution": "Node",
+        "target": "ES6",
+        "exactOptionalPropertyTypes": true,
+        "noImplicitAny": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "noUncheckedIndexedAccess": true,
         "strict": true,
-        "target": "ES6"
+        "useUnknownInCatchVariables": true,
+        "forceConsistentCasingInFileNames": true,
     }
 }
