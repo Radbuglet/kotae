@@ -4,6 +4,10 @@
   "dependencies": {
     "kotae-util": "file:../util",
     "kotae-common": "file:../common",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
     "parcel": "^2.7.0"
   },
   "scripts": {

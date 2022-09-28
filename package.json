@@ -4,5 +4,8 @@
         "src/common",
         "src/util",
         "src/web"
-    ]
+    ],
+    "devDependencies": {
+        "process": "^0.11.10"
+    }
 }

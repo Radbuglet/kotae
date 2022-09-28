@@ -1,8 +1,9 @@
-import { extend } from "../util/array";
+import { collect, extend } from "../util/array";
 import { assert, todo } from "../util/debug";
 import { ArraySet } from "../util/container";
 import { TypedKey, ReadKey, WriteKey } from "./key";
 
+//> CleanupExecutor
 export type CleanupTask = () => void;
 
 export class CleanupExecutor {
@@ -108,26 +109,44 @@ class CleanupMeta {
     public task: CleanupTask | null = null;
 }
 
+//> Part
+type ROOT_NODE_MARKER = typeof Part.ROOT_NODE_MARKER;
+export type PartOrRoot<T = Part> = T | ROOT_NODE_MARKER;
+
+let DEFAULT_ORPHANAGE: Orphanage | null = null;
+
 export class Part {
+    static readonly ROOT_NODE_MARKER = Symbol("root node");
+
+    static get DEFAULT_ORPHANAGE(): Orphanage {
+        assert(DEFAULT_ORPHANAGE !== null);
+        return DEFAULT_ORPHANAGE!;
+    }
+
     //> Fields
-    private parent_: Part | null = null;
+    private parent_: Part | ROOT_NODE_MARKER = Part.ROOT_NODE_MARKER;
     private readonly children_ = new ArraySet<Part>();
 
+    //> Constructors
+    constructor(initial_parent: Part | ROOT_NODE_MARKER = Part.DEFAULT_ORPHANAGE) {
+        this.parent = initial_parent;
+    }
+
     //> Tree management
-    get parent(): Part | null {
+    get parent(): Part | ROOT_NODE_MARKER {
         return this.parent_;
     }
 
-    set parent(new_parent: Part | null) {
+    set parent(new_parent: Part | ROOT_NODE_MARKER) {
         if (this.parent === new_parent) return;
 
         // Remove from old parent
-        if (this.parent !== null) {
+        if (this.parent !== Part.ROOT_NODE_MARKER) {
             this.parent.children_.delete(this);
         }
 
         // Add to new parent
-        if ((this.parent = new_parent) !== null) {
+        if ((this.parent = new_parent) !== Part.ROOT_NODE_MARKER) {
             this.parent.children_.add(this);
         }
     }
@@ -139,9 +158,40 @@ export class Part {
     *ancestors(include_self: boolean): IterableIterator<Part> {
         let target = include_self ? this : this.parent_;
 
-        while (target !== null) {
+        while (target !== Part.ROOT_NODE_MARKER) {
             yield target;
             target = target.parent_;
+        }
+    }
+
+    *descendants(include_self: boolean): IterableIterator<Part> {
+        if (include_self) {
+            yield this;
+        }
+
+        type StackElement = { readonly target: Part, index: number };
+        const stack: StackElement[] = [{ target: this, index: 0 }];
+
+        while (stack.length > 0) {
+            const last_frame = stack[stack.length - 1]!;
+            const { target, index } = last_frame;
+
+            if (index < target.children.length) {
+                // Consume this child
+                last_frame.index += 1;
+
+                // Yield this child
+                const new_target = target.children[index]!;
+                yield new_target;
+
+                // If the child has children, recurse into it.
+                if (new_target.children.length > 0) {
+                    stack.push({ target: new_target, index: 0 });
+                }
+            } else {
+                // Traverse to the child's parent.
+                stack.pop();
+            }
         }
     }
 
@@ -150,13 +200,63 @@ export class Part {
         return part;
     }
 
-    ensureParent(desired: Part | null) {
-        assert(this.parent_ === null || this.parent_ === desired);
+    ensureParent(desired: Part | ROOT_NODE_MARKER) {
+        assert(
+            this.parent_ === Part.ROOT_NODE_MARKER ||
+            this.parent_ === desired ||
+            this.parent_ instanceof Orphanage
+        );
         this.parent = desired;
     }
 
     orphan() {
-        this.parent = null;
+        this.parent = Part.DEFAULT_ORPHANAGE;
+    }
+
+    //> Orphan management
+    static reapLeakedOrphans() {
+        const reaped = Part.DEFAULT_ORPHANAGE.children;
+
+        if (reaped.length > 0) {
+            console.warn(
+                "Reaping",
+                reaped.length,
+                reaped.length === 1 ? "orphan" : "orphans",
+                "which",
+                reaped.length === 1 ? "was" : "were",
+                "left in the `Part.DEFAULT_ORPHANAGE` and prone to being leaked.",
+                reaped,
+            );
+
+            for (const orphan of Part.DEFAULT_ORPHANAGE.children) {
+                orphan.destroy();
+            }
+        }
+    }
+
+    static fallibleSync<R>(f: (orphanage: Orphanage) => R): R {
+        const orphanage = new Orphanage();
+        let res: R;
+        try {
+            res = f(orphanage);
+        } finally {
+            orphanage.destroy();
+        }
+
+        return res;
+    }
+
+    // Woo! Function colors!
+    static async fallibleAsync<R>(f: (orphanage: Orphanage) => Promise<R>): Promise<R> {
+        const orphanage = new Orphanage();
+        let res: R;
+        try {
+            res = await f(orphanage);
+        } finally {
+            orphanage.destroy();
+        }
+
+        return res;
     }
 
     //> Lifecycle management
@@ -167,10 +267,19 @@ export class Part {
     }
 
     destroy() {
+        assert(this !== Part.DEFAULT_ORPHANAGE);  // TODO: Can we remove this special case?
+
+        const targets = collect(this.descendants(true));
+
         todo();
     }
 }
 
+export class Orphanage extends Part { }
+
+DEFAULT_ORPHANAGE = new Orphanage();
+
+//> Entity
 export class Entity extends Part {
     register<T>(comp: T, ...keys: WriteKey<T>[]): T {
         for (const key of keys) {

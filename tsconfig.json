@@ -12,5 +12,6 @@
         "strict": true,
         "useUnknownInCatchVariables": true,
         "forceConsistentCasingInFileNames": true,
+        "jsx": "react",
     }
 }
