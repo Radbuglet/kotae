@@ -1,25 +1,25 @@
 const PHANTOM_WRITE = Symbol();  // TypeScript is magical and its variance is jank.
 const PHANTOM_READ = Symbol();
 
-export interface RawKey {
+export interface IRawKey {
     readonly symbol: Symbol;
 }
 
-export interface WriteKey<T> extends RawKey {
+export interface IWriteKey<T> extends IRawKey {
     readonly [PHANTOM_WRITE]: (_: T) => void;
 
     write(target: object, value: T): void;
     remove(target: object): void;
 }
 
-export interface ReadKey<T> extends RawKey {
+export interface IReadKey<T> extends IRawKey {
     readonly [PHANTOM_READ]: () => T;
 
     read(target: object): T | undefined;
     has(target: object): boolean;
 }
 
-export class TypedKey<T> implements WriteKey<T>, ReadKey<T> {
+export class TypedKey<T> implements IWriteKey<T>, IReadKey<T> {
     readonly [PHANTOM_WRITE]!: (_: T) => void;
     readonly [PHANTOM_READ]!: () => T;
 

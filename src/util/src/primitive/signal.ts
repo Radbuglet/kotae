@@ -1,111 +1,70 @@
-import { assert } from "../util";
-import { ArgsListOf as ArgsListOf, callFunc } from "../util/function";
-import { CleanupExecutor, Part } from "./node";
-
 //> Core signals
-const CONNECTIONS = Symbol("Signal.CONNECTIONS");
 
-// These two interfaces exist exclusively for the purposes of variance checking.
+import { assert } from "../util";
+import { ArgsListOf, callFunc } from "../util/function";
+
 export interface ISubscribeOnlySignal<F> {
-    connect(handler: F): ISubscribeOnlyConnection<F>;
+    connect(handler: F): void;
+    disconnect(handler: F): void;
 }
 
-export interface ISubscribeOnlyConnection<F> extends Part { }
+export class Signal<F> implements ISubscribeOnlySignal<F> {
+    private readonly handlers = new Set<F>();
 
-export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
-    readonly [CONNECTIONS] = new Set<SignalConnection<F>>();
+    connect(handler: F) {
+        this.handlers.add(handler);
+    }
 
-    connect(handler: F): SignalConnection<F> {
-        const connection = new SignalConnection(this, handler);
-        this[CONNECTIONS].add(connection);
-        return connection;
+    disconnect(handler: F): void {
+        assert(this.handlers.has(handler));
+        this.handlers.delete(handler);
     }
 
     fire(...args: ArgsListOf<F>) {
-        for (const connection of this[CONNECTIONS]) {
-            callFunc(connection.handler, ...args);
+        for (const handler of this.handlers) {
+            callFunc(handler, ...args);
         }
     }
 
-    protected override onCleanup(cx: CleanupExecutor) {
-        cx.register(this, [], () => {
-            for (const handler of this[CONNECTIONS]) {
-                handler.destroy();
-            }
-        });
+    iterHandlers(): IterableIterator<F> {
+        return this.handlers.values();
     }
 }
 
-export class SignalConnection<F> extends Part implements ISubscribeOnlyConnection<F> {
-    constructor(
-        readonly signal: Signal<F>,
-        readonly handler: F,
-    ) {
-        super();
-    }
+export type ValueChangeHandler<T> = (new_value: T, old_value: T) => void;
+export type ListChangeHandler<T> = () => void;
 
-    protected override onCleanup(cx: CleanupExecutor) {
-        if (!this.signal.is_condemned) {
-            cx.register(this, [], () => {
-                this.signal[CONNECTIONS].delete(this);
-            });
-        }
-    }
-}
-
-//> Listenable values
-export interface IListenable<T> {
-    readonly on_changed: ISubscribeOnlySignal<() => void>;
-    readonly value: T;
-}
-
-export class ListenValue<T> extends Part implements IListenable<T> {
-    readonly on_changed = this.ensureChild(new Signal<(target: T, old: T) => void>());
+export class ListenValue<T> {
     private value_: T;
+    private readonly on_changed_ = new Signal<ValueChangeHandler<T>>();
 
-    constructor(value: T) {
-        super();
-        this.value_ = value;
+    constructor(initial_value: T) {
+        this.value_ = initial_value;
+    }
+
+    get on_changed(): ISubscribeOnlySignal<ValueChangeHandler<T>> {
+        return this.on_changed_;
     }
 
     get value(): T {
         return this.value_;
     }
 
-    set value(target: T) {
+    set value(value: T) {
         const old = this.value_;
-        if (target !== old) {
-            this.value_ = target;
-            this.on_changed.fire(target, old);
+        if (value !== old) {
+            this.value_ = value;
+            this.on_changed_.fire(value, old);
         }
     }
 }
 
-export class ListenArray<T> extends Part implements IListenable<readonly T[]> {
-    readonly on_changed = this.ensureChild(new Signal<() => void>());
+export class ListenArray<T> {
     private readonly backing: T[] = [];
+    private readonly on_changed_ = new Signal<ListChangeHandler<T>>();
 
-    set(index: number, value: T) {
-        assert(index < value);
-
-        if (this.backing[index] !== value) {
-            this.backing[index] = value;
-            this.on_changed.fire();
-        }
-    }
-
-    push(value: T) {
-        this.backing.push(value);
-        this.on_changed.fire();
-    }
-
-    remove(index: number): T | undefined {
-        const elem = this.backing.splice(index, 1)[0];
-        if (elem !== undefined) {
-            this.on_changed.fire();
-        }
-
-        return elem;
+    get on_changed(): ISubscribeOnlySignal<ListChangeHandler<T>> {
+        return this.on_changed_;
     }
 
     get value(): readonly T[] {
@@ -114,5 +73,26 @@ export class ListenArray<T> extends Part implements IListenable<readonly T[]> {
 
     get length(): number {
         return this.backing.length;
+    }
+
+    set(index: number, value: T) {
+        assert(index < this.backing.length);
+        if (this.backing[index] !== value) {
+            this.backing[index] = value;
+            this.on_changed_.fire();
+        }
+    }
+
+    push(value: T) {
+        this.backing.push(value);
+        this.on_changed_.fire();
+    }
+
+    remove(index: number): T | undefined {
+        const removed = this.backing.splice(index, 1)[0];
+        if (removed !== undefined) {
+            this.on_changed_.fire();
+        }
+        return removed;
     }
 }

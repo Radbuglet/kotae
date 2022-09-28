@@ -1,20 +1,29 @@
-import { Entity, ListenArray, ListenValue, Part, PartOrRoot, TypedKey } from "kotae-util";
+import { Dismounter, dismountIfPresent, dismountRootIfPresent, Entity, ListenArray, ListenValue, Part, registerCompDismounter, TypedKey } from "kotae-util";
 
 export class IrTodoList extends Part {
     static readonly KEY = new TypedKey<IrTodoList>();
 
-    readonly title = this.ensureChild(new ListenValue("untitled todo list"));
-    readonly items = this.ensureChild(new ListenArray<Entity>());
-    readonly checked_count = this.ensureChild(new ListenValue(0));
+    readonly title = new ListenValue("untitled todo list");
+    readonly items = new ListenArray<Entity>();
+    readonly checked_count = new ListenValue(0);
+
+    constructor(parent: Part | null) {
+        super(parent);
+
+        registerCompDismounter(this, cx => {
+            for (const item of this.items.value) {
+                dismountIfPresent(item, cx);
+            }
+        });
+    }
 
     addItem(item: Entity) {
-        this.ensureChild(item);
         this.items.push(item);
     }
 
     removeItem(index: number) {
-        const removed = this.items.remove(index);
-        removed?.destroy();
+        const item = this.items.remove(index);
+        dismountRootIfPresent(item);
     }
 
     removeChecked() {
@@ -32,18 +41,42 @@ export class IrTodoList extends Part {
 export class IrTodoItem extends Part {
     static readonly KEY = new TypedKey<IrTodoItem>();
 
-    readonly text = this.ensureChild(new ListenValue("my todo item"));
-    readonly checked = this.ensureChild(new ListenValue(false));
+    readonly text = new ListenValue("my todo item");
+    readonly checked = new ListenValue(false);
 
-    constructor(parent: PartOrRoot = Part.DEFAULT_ORPHANAGE) {
+    constructor(parent: Part | null) {
         super(parent);
 
         this.checked.on_changed.connect(new_value => {
-            this.deepGet(IrTodoList.KEY).checked_count.value += new_value ? 1 : -1;
-        }).ensureParent(this);
+            this.getListState()
+                .checked_count
+                .value += new_value ? 1 : -1;
+        });
+
+        registerCompDismounter(this, () => {
+            if (this.checked.value) {
+                this.getListState().checked_count.value -= 1;
+            }
+        });
+    }
+
+    private getListState(): IrTodoList {
+        return this.deepGet(IrTodoList.KEY);
     }
 
     flipChecked() {
         this.checked.value = !this.checked.value;
+    }
+
+    removeSelf() {
+        const list_ir = this.getListState();
+
+        for (let i = 0; i < list_ir.items.length; i++) {
+            const item = list_ir.items.value[i]!;
+
+            if (item === this.parent_entity) {
+                list_ir.removeItem(i);
+            }
+        }
     }
 }

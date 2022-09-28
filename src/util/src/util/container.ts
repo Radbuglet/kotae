@@ -37,7 +37,7 @@ export class ArraySet<T extends object> {
             // Swap remove from container
             swapRemove(this.elements_, index);
             if (index < this.elements_.length) {
-                this.index_key.write(this.elements_[index], index);
+                this.index_key.write(this.elements_[index]!, index);
             }
             return true;
         } else {
