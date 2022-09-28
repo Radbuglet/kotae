@@ -1,7 +1,0 @@
-[package]
-name = "mid-ir"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-mid-util = { path = "../util" }
