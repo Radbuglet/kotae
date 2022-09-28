@@ -114,6 +114,7 @@ type ROOT_NODE_MARKER = typeof Part.ROOT_NODE_MARKER;
 export type PartOrRoot<T = Part> = T | ROOT_NODE_MARKER;
 
 let DEFAULT_ORPHANAGE: Orphanage | null = null;
+let PART_ID_GEN = 0;
 
 export class Part {
     static readonly ROOT_NODE_MARKER = Symbol("root node");
@@ -126,6 +127,7 @@ export class Part {
     //> Fields
     private parent_: Part | ROOT_NODE_MARKER = Part.ROOT_NODE_MARKER;
     private readonly children_ = new ArraySet<Part>();
+    public readonly part_id: number = PART_ID_GEN++;
 
     //> Constructors
     constructor(initial_parent: Part | ROOT_NODE_MARKER = Part.DEFAULT_ORPHANAGE) {
@@ -138,16 +140,16 @@ export class Part {
     }
 
     set parent(new_parent: Part | ROOT_NODE_MARKER) {
-        if (this.parent === new_parent) return;
+        if (this.parent_ === new_parent) return;
 
         // Remove from old parent
-        if (this.parent !== Part.ROOT_NODE_MARKER) {
-            this.parent.children_.delete(this);
+        if (this.parent_ !== Part.ROOT_NODE_MARKER) {
+            this.parent_.children_.delete(this);
         }
 
         // Add to new parent
-        if ((this.parent = new_parent) !== Part.ROOT_NODE_MARKER) {
-            this.parent.children_.add(this);
+        if ((this.parent_ = new_parent) !== Part.ROOT_NODE_MARKER) {
+            this.parent_.children_.add(this);
         }
     }
 
@@ -209,8 +211,16 @@ export class Part {
         this.parent = desired;
     }
 
-    orphan() {
-        this.parent = Part.DEFAULT_ORPHANAGE;
+    //> Entity integration
+    deepGet<T>(key: ReadKey<T>): T {
+        for (const ancestor of this.ancestors(true)) {
+            if (!(ancestor instanceof Entity)) continue;
+            const comp = ancestor.tryGet(key);
+            if (comp !== undefined) {
+                return comp;
+            }
+        }
+        throw "ahh";  // FIXME
     }
 
     //> Orphan management
@@ -275,22 +285,26 @@ export class Part {
     }
 }
 
-export class Orphanage extends Part { }
+export class Orphanage extends Part {
+    constructor() {
+        super(Part.ROOT_NODE_MARKER);
+    }
+}
 
 DEFAULT_ORPHANAGE = new Orphanage();
 
 //> Entity
 export class Entity extends Part {
-    register<T>(comp: T, ...keys: WriteKey<T>[]): T {
+    register<T>(comp: T, keys: WriteKey<T>[]): T {
         for (const key of keys) {
             key.write(this, comp);
         }
         return comp;
     }
 
-    add<T extends Part>(comp: T, ...keys: WriteKey<T>[]): T {
+    registerAndAttach<T extends Part>(comp: T, keys: WriteKey<T>[]): T {
         comp.ensureParent(this);
-        return this.register(comp, ...keys);
+        return this.register(comp, keys);
     }
 
     tryGet<T>(key: ReadKey<T>): T | undefined {
