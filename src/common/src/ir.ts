@@ -1,5 +1,66 @@
 import { CleanupExecutor, Entity, ListenArray, ListenValue, Part, TypedKey } from "kotae-util";
 
+export interface IrFactory {
+  createEdge()
+}
+
+
+export class IrDocument extends Part {
+
+    constructor(
+	parent: Part | null,
+	readonly created_date: Date,
+	title: string,
+    ) {
+	super(parent);
+	this.title = new ListenValue<string>(this, title);
+    }
+
+    //readonly author = new ListenValue<string>(this, "untitled");
+
+    readonly title: ListenValue<string>;
+    readonly frames = new ListenArray<Entity>(this);
+
+    addFrame(frame: Entity) {
+	this.frames.push(frame);
+    }
+
+    linkFrames(frame_a: Entity, frame_b: Entity, bidi: boolean) {
+	
+    }
+}
+
+export class IrFrame extends Part {
+    constructor ( parent: Part | null, ) {
+	super(parent);
+    }
+
+    readonly edges = new ListenArray<Entity>(this);
+    readonly lines = new ListenArray<Entity>(this);
+}
+
+export class IrEdge extends Part {
+    constructor ( parent: Part | null, a: Entity, b: Entity) {
+	super(parent);
+
+	const [a, b] = [a, b].sort((a, b) => a.part_id - b.part_id);
+	this.a = new ListenValue<Entity>(this, a);
+	this.b = new ListenValue<Entity>(this, b);
+
+    }
+}
+
+export class IrLine extends Part {
+
+
+}
+
+************
+
+
+
+import { CleanupExecutor, Entity, ListenArray, ListenValue, Part, TypedKey } from "kotae-util";
+
 export class IrTodoList extends Part {
     static readonly KEY = new TypedKey<IrTodoList>();
 
