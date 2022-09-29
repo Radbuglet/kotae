@@ -1,4 +1,4 @@
-import { Dismounter, dismountIfPresent, dismountRootIfPresent, Entity, ListenArray, ListenValue, Part, registerCompDismounter, TypedKey } from "kotae-util";
+import { CleanupExecutor, Entity, ListenArray, ListenValue, Part, TypedKey } from "kotae-util";
 
 export class IrTodoList extends Part {
     static readonly KEY = new TypedKey<IrTodoList>();
@@ -9,21 +9,19 @@ export class IrTodoList extends Part {
 
     constructor(parent: Part | null) {
         super(parent);
-
-        registerCompDismounter(this, cx => {
-            for (const item of this.items.value) {
-                dismountIfPresent(item, cx);
-            }
-        });
     }
 
     addItem(item: Entity) {
         this.items.push(item);
     }
 
-    removeItem(index: number) {
+    removeItemAt(index: number) {
         const item = this.items.remove(index);
-        dismountRootIfPresent(item);
+        item?.destroy();
+    }
+
+    removeItem(item: Entity) {
+        this.removeItemAt(this.items.value.indexOf(item));
     }
 
     removeChecked() {
@@ -32,7 +30,7 @@ export class IrTodoList extends Part {
             const item_ir = item.get(IrTodoItem.KEY);
 
             if (item_ir.checked.value) {
-                this.removeItem(i);
+                this.removeItemAt(i);
             }
         }
     }
@@ -48,19 +46,13 @@ export class IrTodoItem extends Part {
         super(parent);
 
         this.checked.on_changed.connect(new_value => {
-            this.getListState()
+            this.getIrList()
                 .checked_count
                 .value += new_value ? 1 : -1;
         });
-
-        registerCompDismounter(this, () => {
-            if (this.checked.value) {
-                this.getListState().checked_count.value -= 1;
-            }
-        });
     }
 
-    private getListState(): IrTodoList {
+    private getIrList(): IrTodoList {
         return this.deepGet(IrTodoList.KEY);
     }
 
@@ -69,14 +61,12 @@ export class IrTodoItem extends Part {
     }
 
     removeSelf() {
-        const list_ir = this.getListState();
+        this.getIrList().removeItem(this.parent_entity);
+    }
 
-        for (let i = 0; i < list_ir.items.length; i++) {
-            const item = list_ir.items.value[i]!;
-
-            if (item === this.parent_entity) {
-                list_ir.removeItem(i);
-            }
+    protected override onDestroy(cx: CleanupExecutor) {
+        if (this.checked.value) {
+            this.getIrList().checked_count.value -= 1;
         }
     }
 }

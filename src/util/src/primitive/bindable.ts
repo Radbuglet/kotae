@@ -1,11 +1,7 @@
-// TODO: Maybe reimplement condemnation?
-
 import { extend } from "../util/array";
 import { ArraySet } from "../util/container";
 import { assert } from "../util/debug";
 import { TypedKey } from "./key";
-import { Entity, Part } from "./node";
-import { ISubscribeOnlySignal, Signal } from "./signal";
 
 //> CleanupExecutor
 export type CleanupTask = () => void;
@@ -124,52 +120,65 @@ class CleanupMeta {
     public task: CleanupTask | null = null;
 }
 
-//> Dismounter
-export type DismountHandler = (cx: CleanupExecutor) => void;
+//> Bindable
+export const UNSAFE_BINDABLE_BACKING = Symbol("UNSAFE_BINDABLE_BACKING");
 
-export class Dismounter {
-    static readonly KEY = new TypedKey<Dismounter>();
-    private readonly on_dismount_ = new Signal<DismountHandler>();
-    private is_mounted_ = true;
+export type Weak<T extends Bindable> =
+    { readonly is_alive: false, readonly unwrapped: T, readonly [UNSAFE_BINDABLE_BACKING]: T } |
+    { readonly is_alive: true } & T;
 
-    get on_dismount(): ISubscribeOnlySignal<DismountHandler> {
-        return this.on_dismount_;
+export class Bindable {
+    private is_alive_ = true;
+
+    // N.B. this impl is only called when the proxy has been stripped via
+    // `UNSAFE_BINDABLE_BACKING`; otherwise, it's intercepted by the proxy.
+    get [UNSAFE_BINDABLE_BACKING](): this {
+        return this;
     }
 
-    get is_mounted(): boolean {
-        return this.is_mounted_;
+    get unwrapped(): this {
+        return this;
     }
 
-    dismount(cx: CleanupExecutor) {
-        assert(this.is_mounted_);
-        this.is_mounted_ = false;
+    constructor() {
+        const backing = this;
 
-        for (const handler of this.on_dismount_.iterHandlers()) {
-            try {
-                handler(cx);
-            } catch (e) {
-                console.error("Failed to run dismount handler", handler, "because of exception", e);
+        const can_access = (target: this, key: string | symbol) => {
+            return target.is_alive_ ||
+                key === "is_alive" ||
+                key === UNSAFE_BINDABLE_BACKING;
+        };
+
+        return new Proxy(backing, {
+            get(target, key) {
+                assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
+
+                if (key === UNSAFE_BINDABLE_BACKING) {
+                    return backing;
+                }
+
+                // Safety: provided by type checker
+                return (backing as any)[key];
+            },
+            set(target, key, value) {
+                assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
+
+                (target as any)[key] = value;
+                return true;
             }
-        }
+        });
     }
 
-    dismountAsRoot() {
-        CleanupExecutor.run(cx => this.dismount(cx));
+    get is_alive(): boolean {
+        return this.is_alive_;
     }
-}
 
-export function registerCompDismounter(target: Part, handler: DismountHandler) {
-    target.deepGet(Dismounter.KEY).on_dismount.connect(handler);
-}
-
-export function dismountRootIfPresent(target: Entity | undefined | null) {
-    if (target != undefined) {
-        target.get(Dismounter.KEY).dismountAsRoot();
+    asWeak(): Weak<this> {
+        return this;
     }
-}
 
-export function dismountIfPresent(target: Entity | undefined | null, cx: CleanupExecutor) {
-    if (target != undefined) {
-        target.get(Dismounter.KEY).dismount(cx);
+    protected markFinalized() {
+        assert(this.is_alive_);
+        this.is_alive_ = false;
     }
 }
