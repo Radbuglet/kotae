@@ -125,7 +125,7 @@ export const UNSAFE_BINDABLE_BACKING = Symbol("UNSAFE_BINDABLE_BACKING");
 
 export type Weak<T extends Bindable> =
     { readonly is_alive: false, readonly unwrapped: T, readonly [UNSAFE_BINDABLE_BACKING]: T } |
-    { readonly is_alive: true } & T;
+    { readonly is_alive: true } & T
 
 export class Bindable {
     private is_alive_ = true;

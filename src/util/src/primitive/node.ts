@@ -92,6 +92,9 @@ export class Part extends Bindable {
     }
 
     destroy() {
+        // Ignore double-deletions
+        if (this.is_condemned) return;
+
         // Collect descendants & condemn them
         const descendants: Part[] = [];
         const condemnDeep = (target: Part) => {

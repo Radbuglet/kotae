@@ -3,9 +3,9 @@ import { CleanupExecutor, Entity, ListenArray, ListenValue, Part, TypedKey } fro
 export class IrTodoList extends Part {
     static readonly KEY = new TypedKey<IrTodoList>();
 
-    readonly title = new ListenValue("untitled todo list");
-    readonly items = new ListenArray<Entity>();
-    readonly checked_count = new ListenValue(0);
+    readonly title = new ListenValue(this, "untitled todo list");
+    readonly items = new ListenArray<Entity>(this);
+    readonly checked_count = new ListenValue(this, 0);
 
     constructor(parent: Part | null) {
         super(parent);
@@ -39,13 +39,13 @@ export class IrTodoList extends Part {
 export class IrTodoItem extends Part {
     static readonly KEY = new TypedKey<IrTodoItem>();
 
-    readonly text = new ListenValue("my todo item");
-    readonly checked = new ListenValue(false);
+    readonly text = new ListenValue(this, "my todo item");
+    readonly checked = new ListenValue(this, false);
 
     constructor(parent: Part | null) {
         super(parent);
 
-        this.checked.on_changed.connect(new_value => {
+        this.checked.on_changed.connect(this, new_value => {
             this.getIrList()
                 .checked_count
                 .value += new_value ? 1 : -1;

@@ -1,44 +1,71 @@
 //> Core signals
 
-import { assert } from "../util";
+import { assert } from "../util/debug";
+import { ArraySet } from "../util/container";
 import { ArgsListOf, callFunc } from "../util/function";
+import { Part } from "./node";
+import { CleanupExecutor, Weak } from "./bindable";
 
 export interface ISubscribeOnlySignal<F> {
-    connect(handler: F): void;
-    disconnect(handler: F): void;
+    connect(parent: Part | null, handler: F): Weak<ISubscribeOnlyConnection>;
 }
 
-export class Signal<F> implements ISubscribeOnlySignal<F> {
-    private readonly handlers = new Set<F>();
+export interface ISubscribeOnlyConnection extends Part { }
 
-    connect(handler: F) {
-        this.handlers.add(handler);
-    }
+const CONNECTIONS = Symbol("Signal.CONNECTIONS");
 
-    disconnect(handler: F): void {
-        assert(this.handlers.has(handler));
-        this.handlers.delete(handler);
+export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
+    private readonly [CONNECTIONS] = new ArraySet<SignalConnection<F>>();
+
+    connect(parent: Part | null, handler: F): Weak<SignalConnection<F>> {
+        const connection = new SignalConnection<F>(parent, this, handler);
+        this[CONNECTIONS].add(connection);
+        return connection.asWeak();
     }
 
     fire(...args: ArgsListOf<F>) {
-        for (const handler of this.handlers) {
-            callFunc(handler, ...args);
+        for (const connection of this[CONNECTIONS].elements) {
+            callFunc(connection.handler, ...args);
         }
     }
 
-    iterHandlers(): IterableIterator<F> {
-        return this.handlers.values();
+    iterHandlers(): readonly SignalConnection<F>[] {
+        return this[CONNECTIONS].elements;
+    }
+
+    protected override onDestroy(cx: CleanupExecutor): void {
+        cx.register(this, [], () => {
+            for (const connection of this[CONNECTIONS].elements) {
+                connection.destroy();
+            }
+            this.markFinalized();
+        });
+    }
+}
+
+export class SignalConnection<F> extends Part {
+    constructor(parent: Part | null, readonly signal: Signal<F>, readonly handler: F) {
+        super(parent);
+    }
+
+    protected override onDestroy(cx: CleanupExecutor): void {
+        if (!this.signal.is_condemned) {
+            cx.register(this, [this.signal], () => {
+                this.signal[CONNECTIONS].delete(this);
+            });
+        }
     }
 }
 
 export type ValueChangeHandler<T> = (new_value: T, old_value: T) => void;
 export type ListChangeHandler<T> = () => void;
 
-export class ListenValue<T> {
+export class ListenValue<T> extends Part {
     private value_: T;
-    private readonly on_changed_ = new Signal<ValueChangeHandler<T>>();
+    private readonly on_changed_ = new Signal<ValueChangeHandler<T>>(this);
 
-    constructor(initial_value: T) {
+    constructor(parent: Part | null, initial_value: T) {
+        super(parent);
         this.value_ = initial_value;
     }
 
@@ -59,9 +86,9 @@ export class ListenValue<T> {
     }
 }
 
-export class ListenArray<T> {
+export class ListenArray<T> extends Part {
     private readonly backing: T[] = [];
-    private readonly on_changed_ = new Signal<ListChangeHandler<T>>();
+    private readonly on_changed_ = new Signal<ListChangeHandler<T>>(this);
 
     get on_changed(): ISubscribeOnlySignal<ListChangeHandler<T>> {
         return this.on_changed_;

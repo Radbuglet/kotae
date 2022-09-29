@@ -6,10 +6,12 @@ export type EntityViewProps = Readonly<{ target: Entity }>;
 export function hookValue<T>(target: ListenValue<T>): T {
     return useSyncExternalStore(
         on_change => {
-            target.on_changed.connect(on_change);
+            const connection = target.on_changed.connect(null, on_change);
 
             return () => {
-                target.on_changed.disconnect(on_change);
+                if (connection.is_alive) {
+                    connection.destroy();
+                }
             };
         },
         () => target.value,
@@ -21,15 +23,15 @@ export function hookArray<T>(target: ListenArray<T>): readonly T[] {
 
     return useSyncExternalStore(
         on_change => {
-            const handler = () => {
+            const connection = target.on_changed.connect(null, () => {
                 cache = [...target.value];
                 on_change();
-            };
-
-            target.on_changed.connect(handler);
+            });
 
             return () => {
-                target.on_changed.disconnect(handler);
+                if (connection.is_alive) {
+                    connection.destroy();
+                }
             };
         },
         () => cache,

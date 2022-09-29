@@ -21,7 +21,6 @@ export function TodoListView({ target }: EntityViewProps) {
         item.add(new IrTodoItem(item), [IrTodoItem.KEY]);
 
         target_ir.addItem(item);
-        (window as any)["latest_item"] = item;
     };
 
     const do_remove_checked = () => {
@@ -37,9 +36,9 @@ export function TodoListView({ target }: EntityViewProps) {
             <button onClick={do_add_item}> Add Item </button> | { }
             <button onClick={do_remove_checked}> Remove Checked </button>
         </p>
-        <li>
+        <ul>
             {items.map(item => <TodoItemView key={item.part_id} target={item} />)}
-        </li>
+        </ul>
     </div>;
 }
 
@@ -67,7 +66,7 @@ export function TodoItemView({ target }: EntityViewProps) {
         target_ir.text.value = e.target.value;
     };
 
-    return <ul>
+    return <li>
         <input type="checkbox" value={is_checked ? "yes" : "no"} onChange={do_flip_checkbox} />
         {" "}
         <input
@@ -77,5 +76,5 @@ export function TodoItemView({ target }: EntityViewProps) {
         />
         {" "}
         <button onClick={do_remove_self}> Remove </button>
-    </ul>;
+    </li>;
 }
