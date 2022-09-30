@@ -1,7 +1,7 @@
 import { Entity } from "kotae-util";
 import * as React from "react";
 import { IrTodoItem, IrTodoList } from "../../common/src";
-import { EntityViewProps, hookArray, hookValue } from "./util";
+import { EntityViewProps, hookArray, hookValue, wrapWeakReceiver } from "./util";
 
 export function makeReactRoot(target: Entity) {
     return <TodoListView target={target} />;
@@ -14,20 +14,15 @@ export function TodoListView({ target }: EntityViewProps) {
     const items = hookArray(target_ir.unwrapped.items);
     const checked_count = hookValue(target_ir.unwrapped.checked_count);
 
-    const do_add_item = () => {
-        if (!target_ir.is_alive) return;
-
+    const do_add_item = wrapWeakReceiver(target_ir, target_ir => {
         const item = new Entity(target_ir);
         item.add(new IrTodoItem(item), [IrTodoItem.KEY]);
-
         target_ir.addItem(item);
-    };
+    });
 
-    const do_remove_checked = () => {
-        if (!target_ir.is_alive) return;
-
+    const do_remove_checked = wrapWeakReceiver(target_ir, target_ir => {
         target_ir.removeChecked();
-    };
+    });
 
     return <div>
         <h1> {title} </h1>
@@ -48,23 +43,17 @@ export function TodoItemView({ target }: EntityViewProps) {
     const is_checked = hookValue(target_ir.unwrapped.checked);
     const text = hookValue(target_ir.unwrapped.text);
 
-    const do_remove_self = () => {
-        if (!target_ir.is_alive) return;
-
+    const do_remove_self = wrapWeakReceiver(target_ir, target_ir => {
         target_ir.removeSelf();
-    }
+    });
 
-    const do_flip_checkbox = () => {
-        if (!target_ir.is_alive) return;
-
+    const do_flip_checkbox = wrapWeakReceiver(target_ir, target_ir => {
         target_ir.flipChecked();
-    }
+    });
 
-    const do_set_text = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!target_ir.is_alive) return;
-
+    const do_set_text = wrapWeakReceiver(target_ir, (target_ir, e: React.ChangeEvent<HTMLInputElement>) => {
         target_ir.text.value = e.target.value;
-    };
+    });
 
     return <li>
         <input type="checkbox" value={is_checked ? "yes" : "no"} onChange={do_flip_checkbox} />
@@ -76,5 +65,7 @@ export function TodoItemView({ target }: EntityViewProps) {
         />
         {" "}
         <button onClick={do_remove_self}> Remove </button>
+        {" "}
+        {target_ir.unwrapped.part_id}
     </li>;
 }

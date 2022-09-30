@@ -124,8 +124,15 @@ class CleanupMeta {
 export const UNSAFE_BINDABLE_BACKING = Symbol("UNSAFE_BINDABLE_BACKING");
 
 export type Weak<T extends Bindable> =
-    { readonly is_alive: false, readonly unwrapped: T, readonly [UNSAFE_BINDABLE_BACKING]: T } |
-    { readonly is_alive: true } & T
+    ({ readonly is_alive: false, readonly [UNSAFE_BINDABLE_BACKING]: T, readonly unwrapped: T }) |
+    // N.B. the `true | false` thing here is a *massive hack* to get around TypeScript self-type jank.
+    // Essentially, when one attempts to construct the second intersection type, `this` resolves to a
+    // type where `is_alive: true`, which is incompatible with `T` where `is_alive: true | false`.
+    // At least... that's what I think is going on. I can't actually find any documentation on this
+    // behavior. Anyways, `true | false` fixes everything but is still *good enough* for safety since
+    // `is_alive: false` still allows the former case to resolve and narrow the type.
+    // FIXME: Explore this jank and remove it.
+    ({ readonly is_alive: true | false } & T);
 
 export class Bindable {
     private is_alive_ = true;

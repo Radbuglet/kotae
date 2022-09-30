@@ -8,6 +8,9 @@ let ID_GEN = 0;
 
 const PART_CHILD_INDEX_KEY = new TypedKey<number>();
 
+// TODO: Implement a unified debugging mechanism
+const ALIVE_SET = (window as any)["dbg_alive_set"] = new Set<Part>();
+
 export class Part extends Bindable {
     //> Fields
     public readonly part_id = ID_GEN++;
@@ -19,6 +22,8 @@ export class Part extends Bindable {
     constructor(public readonly parent: Part | null) {
         super();
 
+        ALIVE_SET.add(this);
+
         // Validate parent
         assert(parent === null || !parent.is_condemned_);
 
@@ -28,12 +33,9 @@ export class Part extends Bindable {
         }
 
         // Find parent entity
-        for (const ancestor of this.ancestors(false)) {
-            if (ancestor instanceof Entity) {
-                this.opt_parent_entity = ancestor;
-                break;
-            }
-        }
+        this.opt_parent_entity = parent !== null ?
+            (parent instanceof Entity ? parent : parent.opt_parent_entity) :
+            null;
     }
 
     //> Virtual methods
@@ -95,6 +97,9 @@ export class Part extends Bindable {
         // Ignore double-deletions
         if (this.is_condemned) return;
 
+        // Fetch our parent now in case the user decides to invalidate us.
+        const parent = this.parent?.asWeak();
+
         // Collect descendants & condemn them
         const descendants: Part[] = [];
         const condemnDeep = (target: Part) => {
@@ -109,6 +114,8 @@ export class Part extends Bindable {
         condemnDeep(this);
 
         // Run user tear-down code
+        // N.B. as soon as we run this, users are more than encouraged to invalidate themselves.
+        // Assume the worst-case scenario!
         try {
             // Collect destructors & run
             CleanupExecutor.run(cx => {
@@ -117,14 +124,15 @@ export class Part extends Bindable {
                 }
             });
         } finally {
-            // Remove from parent
-            if (this.parent !== null) {
-                this.parent.children_.delete(this);
+            // Remove from parent if it's still alive
+            if (parent !== undefined && parent.is_alive) {
+                parent.children_.delete(this);
             }
 
             // Finalize remaining parts
-            // (we have to immediately return after this or everything breaks!)
             for (const descendant of descendants) {
+                ALIVE_SET.delete(descendant);
+
                 if (descendant.is_alive) {
                     descendant.markFinalized();
                 }

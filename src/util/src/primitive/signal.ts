@@ -15,12 +15,14 @@ export interface ISubscribeOnlyConnection extends Part { }
 const CONNECTIONS = Symbol("Signal.CONNECTIONS");
 
 export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
+    // Invariant: The connections in this array are always valid references. In other words,
+    // `SignalConnections` *must* unregister themselves from this array before finalization.
     private readonly [CONNECTIONS] = new ArraySet<SignalConnection<F>>();
 
     connect(parent: Part | null, handler: F): Weak<SignalConnection<F>> {
         const connection = new SignalConnection<F>(parent, this, handler);
         this[CONNECTIONS].add(connection);
-        return connection.asWeak();
+        return connection;
     }
 
     fire(...args: ArgsListOf<F>) {
@@ -29,7 +31,7 @@ export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
         }
     }
 
-    iterHandlers(): readonly SignalConnection<F>[] {
+    iterHandlers(): readonly Weak<SignalConnection<F>>[] {
         return this[CONNECTIONS].elements;
     }
 
@@ -44,16 +46,20 @@ export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
 }
 
 export class SignalConnection<F> extends Part {
-    constructor(parent: Part | null, readonly signal: Signal<F>, readonly handler: F) {
+    constructor(
+        parent: Part | null,
+        // Invariant: the provided signal must always be alive for the duration of this object's
+        // lifetime. In other words, the signal must destroy us before it destroys itself.
+        readonly signal: Signal<F>,
+        readonly handler: F) {
         super(parent);
     }
 
     protected override onDestroy(cx: CleanupExecutor): void {
-        if (!this.signal.is_condemned) {
-            cx.register(this, [this.signal], () => {
-                this.signal[CONNECTIONS].delete(this);
-            });
-        }
+        cx.register(this, [this.signal], () => {
+            this.signal[CONNECTIONS].delete(this);
+            this.markFinalized();
+        });
     }
 }
 
