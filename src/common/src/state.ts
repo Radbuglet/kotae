@@ -55,11 +55,11 @@ export class IrTodoItem extends Part {
 
     protected override preFinalize(cx: CleanupExecutor) {
         cx.register(this, [], () => {
-            // Remove from items list
             const ir_list = this.getIrList();
-            if (!ir_list.is_condemned) {
-                ir_list.items.remove(this.parent_entity);
-            }
+            if (ir_list.is_condemned) return;
+
+            // Remove from items list
+            ir_list.items.remove(this.parent_entity);
 
             // Decrement checked count
             if (this.checked.value) {
