@@ -5,7 +5,8 @@
     "kotae-common": "file:../common",
     "kotae-util": "file:../util",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-infinite-viewer": "^0.16.5"
   },
   "devDependencies": {
     "@types/react": "^18.0.21",
