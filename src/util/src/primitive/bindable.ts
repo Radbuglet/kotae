@@ -46,14 +46,14 @@ export class CleanupExecutor {
         }
     }
 
-    register(target: object, needs: object[], task: CleanupTask) {
+    register(target: object, needs: object[], task?: CleanupTask) {
         assert(!this.is_executing);
 
         const target_meta = this.getMetaOrAttach(target);
 
         // Set task and update needs list
         assert(target_meta.task === null);
-        target_meta.task = task;
+        target_meta.task = task || null;
         extend(target_meta.blocking, needs);
 
         // Increment dependents' RCs

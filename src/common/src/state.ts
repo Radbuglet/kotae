@@ -54,12 +54,14 @@ export class IrTodoItem extends Part {
     protected override onDestroy(cx: CleanupExecutor) {
         const ir_list = this.getIrList();
 
-        cx.register(this, [ir_list], () => {
+        cx.register(this, [ir_list, this.checked], () => {
             // Remove from items list
             ir_list.items.remove(this.parent_entity);
 
             // Decrement checked count
-            ir_list.checked_count.value -= 1;
+            if (this.checked.value) {
+                ir_list.checked_count.value -= 1;
+            }
 
             this.markFinalized();
         });

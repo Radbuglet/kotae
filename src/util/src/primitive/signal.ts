@@ -1,7 +1,6 @@
 //> Core signals
 
 import { assert } from "../util/debug";
-import { ArraySet } from "../util/container";
 import { ArgsListOf, callFunc } from "../util/function";
 import { Part } from "./node";
 import { CleanupExecutor, Weak } from "./bindable";
@@ -31,12 +30,10 @@ export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
         }
     }
 
-    iterHandlers(): IterableIterator<SignalConnection<F>> {
-        return this[CONNECTIONS].values();
-    }
-
     protected override onDestroy(cx: CleanupExecutor): void {
-        cx.register(this, [...this[CONNECTIONS]], () => {
+        // N.B. We don't actually depend on other cleanup targets because structure invariants ensure
+        // the validity of order-less destruction.
+        cx.register(this, [], () => {
             for (const connection of this[CONNECTIONS]) {
                 connection.destroy();
             }
@@ -56,8 +53,10 @@ export class SignalConnection<F> extends Part {
     }
 
     protected override onDestroy(cx: CleanupExecutor): void {
-        cx.register(this, [this.signal], () => {
-            this.signal[CONNECTIONS].delete(this);
+        cx.register(this, [], () => {
+            if (this.signal.is_alive) {
+                this.signal[CONNECTIONS].delete(this);
+            }
             this.markFinalized();
         });
     }
@@ -89,6 +88,10 @@ export class ListenValue<T> extends Part {
             this.value_ = value;
             this.on_changed_.fire(value, old);
         }
+    }
+
+    protected override onDestroy(cx: CleanupExecutor): void {
+        cx.register(this, [this.on_changed_]);
     }
 }
 
@@ -131,11 +134,15 @@ export class ListenArray<T> extends Part {
 
     remove(instance: T): boolean {
         const index = this.values.indexOf(instance);
-        if (index !== 0) {
+        if (index !== -1) {
             this.removeAt(index);
             return true;
         } else {
             return false;
         }
+    }
+
+    protected override onDestroy(cx: CleanupExecutor): void {
+        cx.register(this, [this.on_changed_]);
     }
 }

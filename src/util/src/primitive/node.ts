@@ -1,5 +1,5 @@
 import { ArraySet } from "../util/container";
-import { assert, todo, unreachable } from "../util/debug";
+import { assert, unreachable } from "../util/debug";
 import { Bindable, CleanupExecutor } from "./bindable";
 import { IReadKey, IWriteKey, TypedKey } from "./key";
 
@@ -27,20 +27,19 @@ type DeletionCx = {
 let DELETION_CX: DeletionCx = { phase: DeletionPhase.NONE };
 
 /**
- * The symbol used to keep track of a `Part`'s index in the `.children` array set.
- */
-const PART_CHILD_INDEX_KEY = new TypedKey<number>();
-
-/**
  * A monotonically increasing `<part>.part_id` generator.
  */
 let ID_GEN = 0;
 
 /**
- * A console-visible set of all live objects.
- * 
- * TODO: Remove in release builds (see Parcel's `process.env` polyfill for details)
+ * The symbol used to keep track of a `Part`'s index in the `.children` array set.
  */
+const PART_CHILD_INDEX_KEY = new TypedKey<number>();
+
+/**
+ * A console-visible set of all live objects.
+ */
+// TODO: Remove in release builds (see Parcel's `process.env` polyfill for details)
 const ALIVE_SET = (window as any)["dbg_alive_set"] = new Set<Part>();
 
 /**
@@ -165,9 +164,7 @@ export class Part extends Bindable {
         }
     }
 
-    /**
-     * TODO: Document
-     */
+    // TODO: Document
     tryDeepGet<T>(key: IReadKey<T>): T | undefined {
         for (const ancestor of this.ancestorEntities()) {
             const comp = ancestor.tryGet(key);
@@ -179,9 +176,7 @@ export class Part extends Bindable {
         return undefined;
     }
 
-    /**
-     * TODO: Document
-     */
+    // TODO: Document
     deepGet<T>(key: IReadKey<T>): T {
         const comp = this.tryDeepGet(key);
         assert(comp !== undefined, "Part", this, "is missing deep component with key", key);
@@ -228,6 +223,7 @@ export class Part extends Bindable {
      * 
      * This method never raises exceptions.
      */
+    // TODO: This still needs considerable code review.
     destroy() {
         // Ignore double-deletions
         if (this.is_condemned) return;
@@ -238,7 +234,7 @@ export class Part extends Bindable {
 
             // Discover deletion candidates recursively
             const executor = new CleanupExecutor();
-            DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor: executor };
+            DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor };
             this.destroy();  // We're not condemned yet so this will just move into the second case.
 
             // Handle the finalizer-rediscovery loop
@@ -276,6 +272,7 @@ export class Part extends Bindable {
 
             // Condemn this object to prevent reentrancy
             this.is_condemned_ = true;
+            ALIVE_SET.delete(this);
 
             // Run the virtual finalizer
             try {
@@ -285,10 +282,11 @@ export class Part extends Bindable {
             }
 
             // Destroy the children
-            for (const child of this.children.clear()) {
+            for (const child of this.children) {
                 // TODO: Handle stack overflows??
                 child.destroy();
             }
+            this.children.clear();
         } else if (DELETION_CX.phase === DeletionPhase.FINALIZATION) {
             // We're finalizing objects. Queue the deletion for later.
             DELETION_CX.queued_deletions.push(this);
