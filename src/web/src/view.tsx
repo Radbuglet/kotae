@@ -37,7 +37,7 @@ export function TodoListView({ target }: EntityViewProps) {
     </div>;
 }
 
-export function TodoItemView({ target }: EntityViewProps) {
+const TodoItemView = React.memo(({ target }: EntityViewProps) => {
     const target_ir = target.get(IrTodoItem.KEY).asWeak();
 
     const is_checked = hookValue(target_ir.unwrapped.checked);
@@ -68,4 +68,4 @@ export function TodoItemView({ target }: EntityViewProps) {
         {" "}
         {target_ir.unwrapped.part_id}
     </li>;
-}
+});
