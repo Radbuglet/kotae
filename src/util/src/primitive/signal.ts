@@ -17,7 +17,7 @@ const CONNECTIONS = Symbol("Signal.CONNECTIONS");
 export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
     // Invariant: The connections in this array are always valid references. In other words,
     // `SignalConnections` *must* unregister themselves from this array before finalization.
-    private readonly [CONNECTIONS] = new ArraySet<SignalConnection<F>>();
+    private readonly [CONNECTIONS] = new Set<SignalConnection<F>>();
 
     connect(parent: Part | null, handler: F): Weak<SignalConnection<F>> {
         const connection = new SignalConnection<F>(parent, this, handler);
@@ -26,18 +26,18 @@ export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
     }
 
     fire(...args: ArgsListOf<F>) {
-        for (const connection of this[CONNECTIONS].elements) {
+        for (const connection of this[CONNECTIONS]) {
             callFunc(connection.handler, ...args);
         }
     }
 
-    iterHandlers(): readonly Weak<SignalConnection<F>>[] {
-        return this[CONNECTIONS].elements;
+    iterHandlers(): IterableIterator<SignalConnection<F>> {
+        return this[CONNECTIONS].values();
     }
 
     protected override onDestroy(cx: CleanupExecutor): void {
-        cx.register(this, [], () => {
-            for (const connection of this[CONNECTIONS].elements) {
+        cx.register(this, [...this[CONNECTIONS]], () => {
+            for (const connection of this[CONNECTIONS]) {
                 connection.destroy();
             }
             this.markFinalized();
@@ -100,7 +100,7 @@ export class ListenArray<T> extends Part {
         return this.on_changed_;
     }
 
-    get value(): readonly T[] {
+    get values(): readonly T[] {
         return this.backing;
     }
 
@@ -121,11 +121,21 @@ export class ListenArray<T> extends Part {
         this.on_changed_.fire();
     }
 
-    remove(index: number): T | undefined {
+    removeAt(index: number): T | undefined {
         const removed = this.backing.splice(index, 1)[0];
         if (removed !== undefined) {
             this.on_changed_.fire();
         }
         return removed;
+    }
+
+    remove(instance: T): boolean {
+        const index = this.values.indexOf(instance);
+        if (index !== 0) {
+            this.removeAt(index);
+            return true;
+        } else {
+            return false;
+        }
     }
 }

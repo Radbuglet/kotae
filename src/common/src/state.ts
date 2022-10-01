@@ -15,22 +15,13 @@ export class IrTodoList extends Part {
         this.items.push(item);
     }
 
-    removeItemAt(index: number) {
-        const item = this.items.remove(index);
-        item?.destroy();
-    }
-
-    removeItem(item: Entity) {
-        this.removeItemAt(this.items.value.indexOf(item));
-    }
-
     removeChecked() {
         for (let i = this.items.length - 1; i >= 0; i--) {
-            const item = this.items.value[i]!;
+            const item = this.items.values[i]!;
             const item_ir = item.get(IrTodoItem.KEY);
 
             if (item_ir.checked.value) {
-                this.removeItemAt(i);
+                item.destroy();
             }
         }
     }
@@ -60,13 +51,17 @@ export class IrTodoItem extends Part {
         this.checked.value = !this.checked.value;
     }
 
-    removeSelf() {
-        this.getIrList().removeItem(this.parent_entity);
-    }
-
     protected override onDestroy(cx: CleanupExecutor) {
-        if (this.checked.value) {
-            this.getIrList().checked_count.value -= 1;
-        }
+        const ir_list = this.getIrList();
+
+        cx.register(this, [ir_list], () => {
+            // Remove from items list
+            ir_list.items.remove(this.parent_entity);
+
+            // Decrement checked count
+            ir_list.checked_count.value -= 1;
+
+            this.markFinalized();
+        });
     }
 }

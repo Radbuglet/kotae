@@ -6,3 +6,7 @@ export function assert(cond: boolean, ...data: any[]) {
 export function todo(): never {
     throw "not implemented";
 }
+
+export function unreachable(): never {
+    throw "unreachable code reached";
+}

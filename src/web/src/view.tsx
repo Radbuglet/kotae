@@ -44,7 +44,7 @@ export function TodoItemView({ target }: EntityViewProps) {
     const text = hookValue(target_ir.unwrapped.text);
 
     const do_remove_self = wrapWeakReceiver(target_ir, target_ir => {
-        target_ir.removeSelf();
+        target_ir.parent_entity.destroy();
     });
 
     const do_flip_checkbox = wrapWeakReceiver(target_ir, target_ir => {

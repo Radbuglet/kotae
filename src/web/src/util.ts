@@ -19,12 +19,12 @@ export function hookValue<T>(target: ListenValue<T>): T {
 }
 
 export function hookArray<T>(target: ListenArray<T>): readonly T[] {
-    let cache: T[] = [...target.value];
+    let cache: T[] = [...target.values];
 
     return useSyncExternalStore(
         on_change => {
             const connection = target.on_changed.connect(null, () => {
-                cache = [...target.value];
+                cache = [...target.values];
                 on_change();
             });
 

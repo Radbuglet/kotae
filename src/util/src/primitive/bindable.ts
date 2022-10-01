@@ -67,8 +67,8 @@ export class CleanupExecutor {
         this.is_executing = true;
 
         // Run all tasks
-        for (let i = 0; i < this.ready_queue.elements.length; i++) {
-            const target = this.ready_queue.elements[i]!;
+        for (let i = 0; i < this.ready_queue.raw_elements.length; i++) {
+            const target = this.ready_queue.raw_elements[i]!;
             const target_meta = this.key.read(target)!;
             assert(target_meta.blocked_rc === 0);
 
@@ -91,7 +91,7 @@ export class CleanupExecutor {
         }
 
         // Remove metadata from the tasks that haven't run.
-        for (const unexecuted of this.not_ready_queue.elements) {
+        for (const unexecuted of this.not_ready_queue) {
             console.error("Failed to execute destructor task on", unexecuted);
             this.key.remove(unexecuted);
         }
@@ -184,7 +184,7 @@ export class Bindable {
         return this;
     }
 
-    protected markFinalized() {
+    markFinalized() {
         assert(this.is_alive_);
         this.is_alive_ = false;
     }
