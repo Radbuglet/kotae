@@ -78,7 +78,8 @@ export class Part extends Bindable {
     /**
      * A set of the `Part`'s remaining non-condemned children.
      * 
-     * If this property is ever exposed to the user, this should account for finalization status.
+     * If this property is ever exposed to the user, this should account for finalization status
+     * instead.
      */
     private readonly remaining_children = new ArraySet<Part>(PART_CHILD_INDEX_KEY);
 
@@ -238,7 +239,7 @@ export class Part extends Bindable {
             // Discover deletion candidates recursively
             const executor = new CleanupExecutor();
             DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor };
-            this.destroy();  // We're not condemned yet so this will just move into the second case.
+            this.destroyDiscovery(executor);
 
             // Handle the finalizer-rediscovery loop
             while (true) {
@@ -256,7 +257,7 @@ export class Part extends Bindable {
                     DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor };
 
                     for (const candidate of candidates) {
-                        candidate.destroy();
+                        candidate.destroyDiscovery(DELETION_CX.executor);
                     }
 
                     // Fallthrough to the finalizer rerun at the top of the loop.
@@ -282,6 +283,10 @@ export class Part extends Bindable {
 
     private destroyDiscovery(executor: CleanupExecutor) {
         // We're discovering new objects to delete.
+        assert(DELETION_CX.phase === DeletionPhase.DISCOVERY);
+
+        // Ignore double-deletions
+        if (this.is_condemned) return;
 
         // Condemn this object to prevent reentrancy
         this.is_condemned_ = true;

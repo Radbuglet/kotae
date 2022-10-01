@@ -16,7 +16,7 @@ export function TodoListView({ target }: EntityViewProps) {
 
     const do_add_item = wrapWeakReceiver(target_ir, target_ir => {
         const item = new Entity(target_ir);
-        item.add(new IrTodoItem(item), [IrTodoItem.KEY]);
+        item.add(new IrTodoItem(item, `todo item #${target_ir.items.length + 1}`), [IrTodoItem.KEY]);
         target_ir.addItem(item);
     });
 

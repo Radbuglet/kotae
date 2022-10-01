@@ -30,24 +30,17 @@ export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
         }
     }
 
-    protected override onDestroy(cx: CleanupExecutor): void {
-        // N.B. We don't actually depend on other cleanup targets because structure invariants ensure
-        // the validity of order-less destruction.
-        cx.register(this, [], () => {
-            for (const connection of this[CONNECTIONS]) {
-                connection.destroy();
-            }
-            this.markFinalized();
-        });
+    protected override onDestroy(_cx: CleanupExecutor): void {
+        for (const connection of this[CONNECTIONS]) {
+            connection.destroy();
+        }
     }
 }
 
 export class SignalConnection<F> extends Part {
     constructor(
         parent: Part | null,
-        // Invariant: the provided signal must always be alive for the duration of this object's
-        // lifetime. In other words, the signal must destroy us before it destroys itself.
-        readonly signal: Signal<F>,
+        readonly signal: Weak<Signal<F>>,
         readonly handler: F) {
         super(parent);
     }

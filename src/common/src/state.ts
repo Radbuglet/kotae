@@ -25,17 +25,22 @@ export class IrTodoList extends Part {
             }
         }
     }
+
+    protected override onDestroy(cx: CleanupExecutor): void {
+        cx.register(this, [this.title, this.items, this.checked_count]);
+    }
 }
 
 export class IrTodoItem extends Part {
     static readonly KEY = new TypedKey<IrTodoItem>();
 
-    readonly text = new ListenValue(this, "my todo item");
+    readonly text: ListenValue<string>;
     readonly checked = new ListenValue(this, false);
 
-    constructor(parent: Part | null) {
+    constructor(parent: Part | null, text: string) {
         super(parent);
 
+        this.text = new ListenValue(this, text);
         this.checked.on_changed.connect(this, new_value => {
             this.getIrList()
                 .checked_count

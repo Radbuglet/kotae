@@ -157,6 +157,7 @@ export class Bindable {
                 key === UNSAFE_BINDABLE_BACKING;
         };
 
+        // TODO: Also make this proxy optional
         return new Proxy(backing, {
             get(target, key) {
                 assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);

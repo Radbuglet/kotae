@@ -15,7 +15,7 @@ export function hookValue<T>(target: ListenValue<T>): T {
             };
         },
         () => target.value,
-    )
+    );
 }
 
 export function hookArray<T>(target: ListenArray<T>): readonly T[] {
