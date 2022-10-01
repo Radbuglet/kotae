@@ -3,7 +3,7 @@
 import { assert } from "../util/debug";
 import { ArgsListOf, callFunc } from "../util/function";
 import { Part } from "./node";
-import { CleanupExecutor, Weak } from "./bindable";
+import { CleanupExecutor, PHANTOM_CLEANUP_TARGET, Weak } from "./bindable";
 
 export interface ISubscribeOnlySignal<F> {
     connect(parent: Part | null, handler: F): Weak<ISubscribeOnlyConnection>;
@@ -13,7 +13,11 @@ export interface ISubscribeOnlyConnection extends Part { }
 
 const CONNECTIONS = Symbol("Signal.CONNECTIONS");
 
+//> Signal
+
 export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
+    readonly [PHANTOM_CLEANUP_TARGET]!: never;
+
     // Invariant: The connections in this array are always valid references. In other words,
     // `SignalConnections` *must* unregister themselves from this array before finalization.
     private readonly [CONNECTIONS] = new Set<SignalConnection<F>>();
@@ -30,14 +34,22 @@ export class Signal<F> extends Part implements ISubscribeOnlySignal<F> {
         }
     }
 
-    protected override onDestroy(_cx: CleanupExecutor): void {
-        for (const connection of this[CONNECTIONS]) {
-            connection.destroy();
-        }
+    protected override preFinalize(cx: CleanupExecutor): void {
+        cx.register(this, [], () => {
+            // N.B. connection destruction is a finalization task, not a discovery task. This is
+            // because destroying those connections would alter the state of the signal (it may or
+            // may not be have a complete handler list) which may be undesirable for some users.
+            for (const connection of this[CONNECTIONS]) {
+                connection.destroy();
+            }
+            this.markFinalized();
+        });
     }
 }
 
 export class SignalConnection<F> extends Part {
+    readonly [PHANTOM_CLEANUP_TARGET]!: never;
+
     constructor(
         parent: Part | null,
         readonly signal: Weak<Signal<F>>,
@@ -45,7 +57,7 @@ export class SignalConnection<F> extends Part {
         super(parent);
     }
 
-    protected override onDestroy(cx: CleanupExecutor): void {
+    protected override preFinalize(cx: CleanupExecutor): void {
         cx.register(this, [], () => {
             if (this.signal.is_alive) {
                 this.signal[CONNECTIONS].delete(this);
@@ -55,10 +67,18 @@ export class SignalConnection<F> extends Part {
     }
 }
 
-export type ValueChangeHandler<T> = (new_value: T, old_value: T) => void;
-export type ListChangeHandler<T> = () => void;
+//> ListenValue
 
-export class ListenValue<T> extends Part {
+export type ValueChangeHandler<T> = (new_value: T, old_value: T) => void;
+
+export interface IReadonlyListenValue<T> extends Part {
+    readonly value: T;
+    readonly on_changed: ISubscribeOnlySignal<ValueChangeHandler<T>>;
+}
+
+export class ListenValue<T> extends Part implements IReadonlyListenValue<T> {
+    readonly [PHANTOM_CLEANUP_TARGET]!: never;
+
     private value_: T;
     private readonly on_changed_ = new Signal<ValueChangeHandler<T>>(this);
 
@@ -83,12 +103,27 @@ export class ListenValue<T> extends Part {
         }
     }
 
-    protected override onDestroy(cx: CleanupExecutor): void {
-        cx.register(this, [this.on_changed_]);
+    protected override preFinalize(cx: CleanupExecutor): void {
+        cx.register(this, [this.on_changed_], () => {
+            this.markFinalized();
+        });
     }
 }
 
-export class ListenArray<T> extends Part {
+//> ListenArray
+
+export type ListChangeHandler<T> = () => void;
+
+export interface IReadonlyListenArray<T> extends Part {
+    readonly on_changed: ISubscribeOnlySignal<ListChangeHandler<T>>;
+
+    readonly values: readonly T[];
+    readonly length: number;
+}
+
+export class ListenArray<T> extends Part implements IReadonlyListenArray<T> {
+    readonly [PHANTOM_CLEANUP_TARGET]!: never;
+
     private readonly backing: T[] = [];
     private readonly on_changed_ = new Signal<ListChangeHandler<T>>(this);
 
@@ -135,7 +170,65 @@ export class ListenArray<T> extends Part {
         }
     }
 
-    protected override onDestroy(cx: CleanupExecutor): void {
-        cx.register(this, [this.on_changed_]);
+    protected override preFinalize(cx: CleanupExecutor): void {
+        cx.register(this, [this.on_changed_], () => {
+            this.markFinalized();
+        });
+    }
+}
+
+//> ListenSet
+
+export type SetChangeHandler<T> = () => void;
+
+export interface IReadonlyListenSet<T> extends Part {
+    readonly on_changed: ISubscribeOnlySignal<SetChangeHandler<T>>;
+
+    readonly values: ReadonlySet<T>;
+    readonly size: number;
+}
+
+export class ListenSet<T> extends Part implements IReadonlyListenSet<T> {
+    readonly [PHANTOM_CLEANUP_TARGET]!: never;
+
+    private readonly backing = new Set<T>();
+    private readonly on_changed_ = new Signal<SetChangeHandler<T>>(this);
+
+    get on_changed(): ISubscribeOnlySignal<SetChangeHandler<T>> {
+        return this.on_changed_;
+    }
+
+    get values(): ReadonlySet<T> {
+        return this.backing;
+    }
+
+    get size(): number {
+        return this.backing.size;
+    }
+
+    add(value: T) {
+        if (!this.backing.has(value)) {
+            this.backing.add(value);
+            this.on_changed_.fire();
+        }
+    }
+
+    has(value: T) {
+        return this.backing.has(value);
+    }
+
+    delete(instance: T): boolean {
+        if (this.backing.delete(instance)) {
+            this.on_changed_.fire();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    protected override preFinalize(cx: CleanupExecutor): void {
+        cx.register(this, [this.on_changed_], () => {
+            this.markFinalized();
+        });
     }
 }

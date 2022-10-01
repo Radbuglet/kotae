@@ -1,4 +1,4 @@
-import { CleanupExecutor, Entity, ListenArray, ListenValue, Part, TypedKey } from "kotae-util";
+import { CleanupExecutor, Entity, ListenArray, ListenValue, Part, PHANTOM_CLEANUP_TARGET, TypedKey } from "kotae-util";
 
 export class IrTodoList extends Part {
     static readonly KEY = new TypedKey<IrTodoList>();
@@ -25,14 +25,11 @@ export class IrTodoList extends Part {
             }
         }
     }
-
-    protected override onDestroy(cx: CleanupExecutor): void {
-        cx.register(this, [this.title, this.items, this.checked_count]);
-    }
 }
 
 export class IrTodoItem extends Part {
     static readonly KEY = new TypedKey<IrTodoItem>();
+    readonly [PHANTOM_CLEANUP_TARGET]!: never;
 
     readonly text: ListenValue<string>;
     readonly checked = new ListenValue(this, false);
@@ -56,12 +53,13 @@ export class IrTodoItem extends Part {
         this.checked.value = !this.checked.value;
     }
 
-    protected override onDestroy(cx: CleanupExecutor) {
-        const ir_list = this.getIrList();
-
-        cx.register(this, [ir_list, this.checked], () => {
+    protected override preFinalize(cx: CleanupExecutor) {
+        cx.register(this, [], () => {
             // Remove from items list
-            ir_list.items.remove(this.parent_entity);
+            const ir_list = this.getIrList();
+            if (!ir_list.is_condemned) {
+                ir_list.items.remove(this.parent_entity);
+            }
 
             // Decrement checked count
             if (this.checked.value) {

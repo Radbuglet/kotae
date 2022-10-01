@@ -6,13 +6,19 @@ import { TypedKey } from "./key";
 //> CleanupExecutor
 export type CleanupTask = () => void;
 
+export const PHANTOM_CLEANUP_TARGET = Symbol("IS_CLEANUP_TARGET");
+
+export interface ICleanupTarget {
+    readonly [PHANTOM_CLEANUP_TARGET]: never;
+}
+
 export class CleanupExecutor {
     private readonly key = new TypedKey<CleanupMeta>();
-    private readonly ready_queue = new ArraySet<object>();
-    private readonly not_ready_queue = new ArraySet<object>();
+    private readonly ready_queue = new ArraySet<ICleanupTarget>();
+    private readonly not_ready_queue = new ArraySet<ICleanupTarget>();
     private is_executing = false;
 
-    private getMetaOrAttach(target: object): CleanupMeta {
+    private getMetaOrAttach(target: ICleanupTarget): CleanupMeta {
         let meta = this.key.read(target);
         if (meta === undefined) {
             meta = new CleanupMeta();
@@ -22,7 +28,7 @@ export class CleanupExecutor {
         return meta;
     }
 
-    private incrementRc(target: object) {
+    private incrementRc(target: ICleanupTarget) {
         const meta = this.getMetaOrAttach(target);
 
         // Increment RC
@@ -35,7 +41,7 @@ export class CleanupExecutor {
         }
     }
 
-    private decrementRc(target: object) {
+    private decrementRc(target: ICleanupTarget) {
         const blocked_meta = this.key.read(target)!;
         blocked_meta.blocked_rc -= 1;
 
@@ -46,7 +52,7 @@ export class CleanupExecutor {
         }
     }
 
-    register(target: object, needs: object[], task?: CleanupTask) {
+    register(target: ICleanupTarget, run_before: ICleanupTarget[], task?: CleanupTask) {
         assert(!this.is_executing);
 
         const target_meta = this.getMetaOrAttach(target);
@@ -54,10 +60,10 @@ export class CleanupExecutor {
         // Set task and update needs list
         assert(target_meta.task === null);
         target_meta.task = task || null;
-        extend(target_meta.blocking, needs);
+        extend(target_meta.blocking, run_before);
 
         // Increment dependents' RCs
-        for (const needed of needs) {
+        for (const needed of run_before) {
             this.incrementRc(needed);
         }
     }
@@ -117,7 +123,7 @@ export class CleanupExecutor {
 
 class CleanupMeta {
     public blocked_rc = 0;
-    public readonly blocking: object[] = [];
+    public readonly blocking: ICleanupTarget[] = [];
     public task: CleanupTask | null = null;
 }
 

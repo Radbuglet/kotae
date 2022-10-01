@@ -21,7 +21,7 @@ type DeletionCx = {
     readonly executor: CleanupExecutor,
 } | {
     readonly phase: DeletionPhase.FINALIZATION,
-    readonly queued_deletions: Part[],
+    readonly queued_deletions: Set<Part>,
 };
 
 let DELETION_CX: DeletionCx = { phase: DeletionPhase.NONE };
@@ -132,7 +132,7 @@ export class Part extends Bindable {
      * `CleanupExecutor`. It is allowed, however, to mark other objects for destruction since these
      * will not actually be finalized until the root call to `.destroy()` resolves.
      */
-    protected onDestroy(cx: CleanupExecutor) {
+    protected preFinalize(cx: CleanupExecutor) {
         /* virtual method */
     }
 
@@ -194,7 +194,7 @@ export class Part extends Bindable {
      *    `Part.deletion_phase`.
      * 3. Destruction candidates are discovered:
      *      1. The object is condemned. If it was already condemned, the destroy request is ignored.
-     *      2. The object's `.onDestroy()` virtual method is called. This object can mark other objects
+     *      2. The object's `.preFinalize()` virtual method is called. This object can mark other objects
      *         as destruction candidates via `.destroy()` and register finalization tasks with the
      *         provided `CleanupExecutor`. Exceptions occurring during that call are caught and
      *         reported.
@@ -244,7 +244,7 @@ export class Part extends Bindable {
             // Handle the finalizer-rediscovery loop
             while (true) {
                 // Run the finalizers
-                DELETION_CX = { phase: DeletionPhase.FINALIZATION, queued_deletions: [] };
+                DELETION_CX = { phase: DeletionPhase.FINALIZATION, queued_deletions: new Set() };
                 executor.execute();  // This also can't raise exceptions.
 
                 // Mark affected `Parts` as finalized
@@ -252,7 +252,7 @@ export class Part extends Bindable {
 
                 // Rediscover new destruction candidates if they were registered.
                 const candidates = DELETION_CX.queued_deletions;
-                if (candidates.length > 0) {
+                if (candidates.size > 0) {
                     // Yes, context reuse works perfectly well.
                     DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor };
 
@@ -275,7 +275,7 @@ export class Part extends Bindable {
             this.destroyDiscovery(DELETION_CX.executor);
         } else if (DELETION_CX.phase === DeletionPhase.FINALIZATION) {
             // We're finalizing objects. Queue the deletion for later.
-            DELETION_CX.queued_deletions.push(this);
+            DELETION_CX.queued_deletions.add(this);
         } else {
             unreachable();
         }
@@ -294,9 +294,9 @@ export class Part extends Bindable {
 
         // Run the virtual finalizer
         try {
-            this.onDestroy(executor);
+            this.preFinalize(executor);
         } catch (e) {
-            console.error("Exception raised while running", this, "'s .onDestroy() handler:", e);
+            console.error("Exception raised while running", this, "'s .preFinalize() handler:", e);
         }
 
         // Mark children for destruction
