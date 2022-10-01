@@ -80,7 +80,7 @@ export class Part extends Bindable {
      * 
      * If this property is ever exposed to the user, this should account for finalization status.
      */
-    private readonly children = new ArraySet<Part>(PART_CHILD_INDEX_KEY);
+    private readonly remaining_children = new ArraySet<Part>(PART_CHILD_INDEX_KEY);
 
     /**
      * See public getter docs.
@@ -114,7 +114,7 @@ export class Part extends Bindable {
 
         // Add child to parent
         if (parent !== null) {
-            parent.children.add(this);
+            parent.remaining_children.add(this);
         }
 
         // Find parent entity
@@ -164,7 +164,6 @@ export class Part extends Bindable {
         }
     }
 
-    // TODO: Document
     tryDeepGet<T>(key: IReadKey<T>): T | undefined {
         for (const ancestor of this.ancestorEntities()) {
             const comp = ancestor.tryGet(key);
@@ -176,7 +175,6 @@ export class Part extends Bindable {
         return undefined;
     }
 
-    // TODO: Document
     deepGet<T>(key: IReadKey<T>): T {
         const comp = this.tryDeepGet(key);
         assert(comp !== undefined, "Part", this, "is missing deep component with key", key);
@@ -200,7 +198,7 @@ export class Part extends Bindable {
      *         provided `CleanupExecutor`. Exceptions occurring during that call are caught and
      *         reported.
      *      3. The object's remaining children are also `.destroy()`'ed, causing this process to
-     *         recurse.
+     *         recurse. Note that condemned nodes cannot be parents of new parts.
      * 4. The deletion phase is set to `DeletionPhase.FINALIZATION` and can be observed via
      *    `Part.deletion_phase`.
      * 5. After control is returned from the root-most `.destroy()` call, the `CleanupExecutor` runs
@@ -223,7 +221,7 @@ export class Part extends Bindable {
      * 
      * This method never raises exceptions.
      */
-    // TODO: This still needs considerable code review.
+    // TODO: This still needs considerable code review & unit testing.
     destroy() {
         // Ignore double-deletions
         if (this.is_condemned) return;
@@ -231,6 +229,11 @@ export class Part extends Bindable {
         // Handle cases
         if (DELETION_CX.phase === DeletionPhase.NONE) {
             // We're starting a whole new deletion request.
+
+            // Remove from the parent's remaining children set.
+            if (this.parent !== null) {
+                this.parent.remaining_children.delete(this);
+            }
 
             // Discover deletion candidates recursively
             const executor = new CleanupExecutor();
@@ -243,7 +246,7 @@ export class Part extends Bindable {
                 DELETION_CX = { phase: DeletionPhase.FINALIZATION, queued_deletions: [] };
                 executor.execute();  // This also can't raise exceptions.
 
-                // Mark remaining `Parts` as finalized
+                // Mark affected `Parts` as finalized
                 // TODO
 
                 // Rediscover new destruction candidates if they were registered.
@@ -268,30 +271,33 @@ export class Part extends Bindable {
             DELETION_CX = { phase: DeletionPhase.NONE };
             return;
         } else if (DELETION_CX.phase === DeletionPhase.DISCOVERY) {
-            // We're discovering new objects to delete.
-
-            // Condemn this object to prevent reentrancy
-            this.is_condemned_ = true;
-            ALIVE_SET.delete(this);
-
-            // Run the virtual finalizer
-            try {
-                this.onDestroy(DELETION_CX.executor);
-            } catch (e) {
-                console.error("Exception raised while running", this, "'s .onDestroy() handler:", e);
-            }
-
-            // Destroy the children
-            for (const child of this.children) {
-                // TODO: Handle stack overflows??
-                child.destroy();
-            }
-            this.children.clear();
+            this.destroyDiscovery(DELETION_CX.executor);
         } else if (DELETION_CX.phase === DeletionPhase.FINALIZATION) {
             // We're finalizing objects. Queue the deletion for later.
             DELETION_CX.queued_deletions.push(this);
         } else {
             unreachable();
+        }
+    }
+
+    private destroyDiscovery(executor: CleanupExecutor) {
+        // We're discovering new objects to delete.
+
+        // Condemn this object to prevent reentrancy
+        this.is_condemned_ = true;
+        ALIVE_SET.delete(this);
+
+        // Run the virtual finalizer
+        try {
+            this.onDestroy(executor);
+        } catch (e) {
+            console.error("Exception raised while running", this, "'s .onDestroy() handler:", e);
+        }
+
+        // Mark children for destruction
+        for (const child of this.remaining_children) {
+            // TODO: Handle stack overflows??
+            child.destroyDiscovery(executor);
         }
     }
 

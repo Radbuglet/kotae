@@ -92,6 +92,7 @@ export class CleanupExecutor {
 
         // Remove metadata from the tasks that haven't run.
         for (const unexecuted of this.not_ready_queue) {
+            // TODO: Print reference cycle.
             console.error("Failed to execute destructor task on", unexecuted);
             this.key.remove(unexecuted);
         }
