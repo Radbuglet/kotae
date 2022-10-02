@@ -1,57 +1,55 @@
-import React, {} from 'react';
+import * as React from 'react';
 import Moveable from "react-moveable";
 
 export default function DraggableTest(props: any) {
-    const [target, setTarget] = React.useState();
-    const [frame, setFrame] = React.useState({
-	translate: [0,0],
-	rotate: 0,
-	transformOrigin: "50% 50%",
-    });
-    React.useEffect(() => {
-	setTarget(document.querySelector(".target")!);
-    }, []);
-    return <div className="container">
-	<div className="target">Target</div>
+
+
+    const targetRef = React.useRef<HTMLDivElement>(null);
+    //const moveableRef = React.useRef<Moveable>(null);
+
+    
+    return (
+	<>
+	    <div ref={targetRef} className="" style={{width: "min-content"}}>
+		{props.content}
+	    </div>
 	<Moveable
-	    target={target}
-	    originDraggable={true}
-	    originRelative={true}
+	    target={targetRef}
+	    container={null}
+	    origin={false}
+
+	    /* Resize event edges */
+	    edge={true}
+	    stopPropagation={true}
+
+	    hideDefaultLines={true}
+	    
+	    defaultX={1000}
+	    //dragTarget={targetRef}
+	    //ref={moveableRef}
+
+	    /* draggable */
 	    draggable={true}
 	    throttleDrag={0}
-	    startDragRotate={0}
-	    throttleDragRotate={0}
-	    zoom={1}
-	    origin={true}
-	    padding={{"left":0,"top":0,"right":0,"bottom":0}}
-	    rotatable={true}
-	    throttleRotate={0}
-	    rotationPosition={"top"}
-	    onDragOriginStart={e => {
-		e.dragStart && e.dragStart.set(frame.translate);
+	    onDragStart={({ target, clientX, clientY }) => {
+		console.log("onDragStart", target);
 	    }}
-	    onDragOrigin={e => {
-		frame.translate = e.drag.beforeTranslate;
-		frame.transformOrigin = e.transformOrigin;
+	    onDrag={({
+		target,
+		beforeDelta, beforeDist,
+		left, top,
+		right, bottom,
+		delta, dist,
+		transform,
+		clientX, clientY,
+	    }: OnDrag) => {
+		target!.style.transform = transform;
 	    }}
-	    onDragStart={e => {
-		e.set(frame.translate);
+	    onDragEnd={({ target, isDrag, clientX, clientY }) => {
+		console.log("onDragEnd", target, isDrag);
 	    }}
-	    onDrag={e => {
-		frame.translate = e.beforeTranslate;
-	    }}
-	    onRotateStart={e => {
-		e.set(frame.rotate);
-	    }}
-	    onRotate={e => {
-		frame.rotate = e.beforeRotate;
-	    }}
-	    onRender={e => {
-		const { translate, rotate, transformOrigin } = frame;
-		e.target.style.transformOrigin = transformOrigin;
-		e.target.style.transform = `translate(${translate[0]}px, ${translate[1]}px)`
-		+  ` rotate(${rotate}deg)`;
-	    }}
+
 	/>
-    </div>;
+	</>
+    );
 }
