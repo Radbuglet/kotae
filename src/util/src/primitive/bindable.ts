@@ -13,7 +13,7 @@ export interface ICleanupTarget {
 }
 
 export class CleanupExecutor {
-    private readonly key = new TypedKey<CleanupMeta>();
+    private readonly key = new TypedKey<CleanupMeta>("CleanupMeta");
     private readonly ready_queue = new ArraySet<ICleanupTarget>();
     private readonly not_ready_queue = new ArraySet<ICleanupTarget>();
     private is_executing = false;

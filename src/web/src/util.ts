@@ -1,9 +1,9 @@
-import { Bindable, callFunc, Entity, ListenArray, ListenValue, Weak } from "kotae-util";
+import { Bindable, callFunc, Entity, IListenable, Weak } from "kotae-util";
 import { useSyncExternalStore } from "react";
 
 export type EntityViewProps = Readonly<{ target: Entity }>;
 
-export function hookValue<T>(target: ListenValue<T>): T {
+export function useListenable<T>(target: IListenable<T>): T {
     return useSyncExternalStore(
         on_change => {
             const connection = target.on_changed.connect(null, on_change);
@@ -14,27 +14,7 @@ export function hookValue<T>(target: ListenValue<T>): T {
                 }
             };
         },
-        () => target.value,
-    );
-}
-
-export function hookArray<T>(target: ListenArray<T>): readonly T[] {
-    let cache: T[] = [...target.values];
-
-    return useSyncExternalStore(
-        on_change => {
-            const connection = target.on_changed.connect(null, () => {
-                cache = [...target.values];
-                on_change();
-            });
-
-            return () => {
-                if (connection.is_alive) {
-                    connection.destroy();
-                }
-            };
-        },
-        () => cache,
+        () => target.value_snapshot,
     );
 }
 

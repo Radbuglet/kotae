@@ -1,10 +1,10 @@
 import * as ReactDOM from "react-dom/client";
 import { Entity } from "kotae-util";
-import { IrTodoList } from "../../common/src";
 import { makeReactRoot } from "./view";
+import { IrDocument } from "kotae-common";
 
-const list = new Entity(null);
-list.add(new IrTodoList(list), [IrTodoList.KEY]);
+const app = new Entity(null);
+app.add(new IrDocument(app), [IrDocument.KEY]);
 
 const container = ReactDOM.createRoot(document.getElementById("root")!);
-container.render(makeReactRoot(list));
+container.render(makeReactRoot(app));

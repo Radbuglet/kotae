@@ -34,7 +34,7 @@ let ID_GEN = 0;
 /**
  * The symbol used to keep track of a `Part`'s index in the `.children` array set.
  */
-const PART_CHILD_INDEX_KEY = new TypedKey<number>();
+const PART_CHILD_INDEX_KEY = new TypedKey<number>("part_child_index");
 
 /**
  * A console-visible set of all live objects.
