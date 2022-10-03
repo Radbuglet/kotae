@@ -130,12 +130,12 @@ export class Part extends Bindable {
         return this.children_;
     }
 
-    get entity(): Entity {
+    get parent_entity(): Entity {
         assert(this.entity_ !== null);
         return this.entity_!;
     }
 
-    get opt_entity(): Entity | null {
+    get opt_parent_entity(): Entity | null {
         return this.entity_;
     }
 
@@ -258,7 +258,7 @@ export class Entity extends Part {
     }
 
     add<T>(comp: T, keys: IWriteKey<T>[]): T {
-        assert(!(comp instanceof Part) || comp.opt_entity === this);
+        assert(!(comp instanceof Part) || comp.opt_parent_entity === this);
 
         for (const key of keys) {
             assert(!this.has(key));
