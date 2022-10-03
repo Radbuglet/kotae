@@ -1,170 +1,188 @@
-import { ArraySet } from "../util/container";
-import { assert, unreachable } from "../util/debug";
-import { Bindable, CleanupExecutor } from "./bindable";
-import { IReadKey, IWriteKey, TypedKey } from "./key";
+// TODO: Produce a release build
 
-//> Part
+import { assert } from "../util/debug";
+import { IRawKey, IReadKey, IWriteKey } from "./key";
 
-/**
- * The process's current deletion phase. See `<part>.destroy()` for more details.
- */
-export enum DeletionPhase {
-    NONE,
-    DISCOVERY,
-    FINALIZATION,
-}
+//> Bindable
+export const UNSAFE_BINDABLE_BACKING = Symbol("UNSAFE_BINDABLE_BACKING");
 
-type DeletionCx = {
-    readonly phase: DeletionPhase.NONE
-} | {
-    readonly phase: DeletionPhase.DISCOVERY,
-    readonly executor: CleanupExecutor,
-} | {
-    readonly phase: DeletionPhase.FINALIZATION,
-    readonly queued_deletions: Set<Part>,
-};
+const DBG_ALIVE_SET = (window as any)["dbg_alive_set"] = new Set<Bindable>();
 
-let DELETION_CX: DeletionCx = { phase: DeletionPhase.NONE };
+export type Weak<T extends Bindable> =
+    ({ readonly is_alive: false, readonly [UNSAFE_BINDABLE_BACKING]: T, readonly unwrapped: T }) |
+    // N.B. the `true | false` thing here is a *massive hack* to get around TypeScript self-type jank.
+    // Essentially, when one attempts to construct the second intersection type, `this` resolves to a
+    // type where `is_alive: true`, which is incompatible with `T` where `is_alive: true | false`.
+    // At least... that's what I think is going on. I can't actually find any documentation on this
+    // behavior. Anyways, `true | false` fixes everything but is still *good enough* for safety since
+    // `is_alive: false` still allows the former case to resolve and narrow the type.
+    ({ readonly is_alive: true | false } & T);
 
-/**
- * A monotonically increasing `<part>.part_id` generator.
- */
-let ID_GEN = 0;
+export class Bindable {
+    private is_alive_ = true;
 
-/**
- * The symbol used to keep track of a `Part`'s index in the `.children` array set.
- */
-const PART_CHILD_INDEX_KEY = new TypedKey<number>("part_child_index");
-
-/**
- * A console-visible set of all live objects.
- */
-// TODO: Remove in release builds (see Parcel's `process.env` polyfill for details)
-const ALIVE_SET = (window as any)["dbg_alive_set"] = new Set<Part>();
-
-/**
- * The base class of objects whose lifecycle can be expressed in terms of an object tree.
- * 
- * TODO: Write module docs
- */
-export class Part extends Bindable {
-    //> Fields
-
-    /**
-     * A process-unique identifier for this `Part`.
-     * 
-     * Can be used by React as a `ref` for the `Part`'s corresponding "view" component.
-     */
-    public readonly part_id = ID_GEN++;
-
-    /**
-     * The `Part`'s nearest `Entity` ancestor. If this part is an `Entity`, this points to its
-     * parent's `parent_entity`.
-     * 
-     * Because `opt_parent_entity` is so frequently assumed to be non-null, we created an alias to
-     * this raw field called `parent_entity` which asserts the non-existence of the `null` variant
-     * (with debug checks, of course).
-     */
-    public readonly opt_parent_entity: Entity | null = null;
-
-    /**
-     * An asserted-non-null version of `opt_parent_entity`.
-     */
-    get parent_entity(): Entity {
-        assert(this.opt_parent_entity !== null);
-        return this.opt_parent_entity!;
+    // N.B. this impl is only called when the proxy has been stripped via
+    // `UNSAFE_BINDABLE_BACKING`; otherwise, it's intercepted by the proxy.
+    get [UNSAFE_BINDABLE_BACKING](): this {
+        return this;
     }
 
-    /**
-     * A set of the `Part`'s remaining non-condemned children.
-     * 
-     * If this property is ever exposed to the user, this should account for finalization status
-     * instead.
-     */
-    private readonly remaining_children = new ArraySet<Part>(PART_CHILD_INDEX_KEY);
+    get unwrapped(): this {
+        return this;
+    }
 
-    /**
-     * See public getter docs.
-     */
+    constructor() {
+        DBG_ALIVE_SET.add(this);
+
+        const backing = this;
+
+        const can_access = (target: this, key: string | symbol) => {
+            return target.is_alive_ ||
+                key === "is_alive" ||
+                key === UNSAFE_BINDABLE_BACKING;
+        };
+
+        return new Proxy(backing, {
+            get(target, key) {
+                assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
+
+                if (key === UNSAFE_BINDABLE_BACKING) {
+                    return backing;
+                }
+
+                // Safety: provided by type checker
+                return (backing as any)[key];
+            },
+            set(target, key, value) {
+                assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
+
+                (target as any)[key] = value;
+                return true;
+            }
+        });
+    }
+
+    get is_alive(): boolean {
+        return this.is_alive_;
+    }
+
+    asWeak(): Weak<this> {
+        return this;
+    }
+
+    protected markFinalized() {
+        assert(this.is_alive_);
+        this.is_alive_ = false;
+        DBG_ALIVE_SET.delete(this[UNSAFE_BINDABLE_BACKING]);
+    }
+}
+
+//> Part
+let PART_ID_GEN = 0;
+
+export type Finalizer = () => void;
+
+export class Part extends Bindable {
+    //> Properties & fields
+    readonly part_id = PART_ID_GEN++;
+    private parent_: Part | null = null;
+    private entity_: Entity | null = null;
+    private children_ = new Set<Part>();
     private is_condemned_ = false;
+    private is_destroying_ = false;
 
-    /**
-     * Whether the `Part` has been condemned to destruction by `<Part>.destroy()`. This can be
-     * used by finalizers to skip expensive finalization steps for objects that won't even be
-     * observed.
-     */
+    get parent(): Part | null {
+        return this.parent_;
+    }
+
+    set parent(new_parent: Part | null) {
+        if (assert(!this.is_condemned_, "Cannot move condemned parts!")) {
+            return;
+        }
+
+        // TODO: Detect recursive trees
+
+        // Update `Part.children`
+        if (this.parent_ !== null) {
+            this.parent_.children_.delete(this);
+        }
+
+        this.parent_ = new_parent;
+        if (this.parent_ !== null) {
+            this.parent_.children_.add(this);
+        }
+
+        // Update nearest entity
+        const new_entity = this.parent_ === null
+            ? null
+            : (this.parent_ instanceof Entity ? this.parent_ : this.parent_.entity_);
+
+        if (this.entity_ !== new_entity) {
+            this.entity_ = new_entity;
+
+            for (const descendant of this.descendants(false, descendant => !(descendant instanceof Entity))) {
+                descendant.entity_ = this.entity_;
+            }
+        }
+    }
+
+    get children(): ReadonlySet<Part> {
+        return this.children_;
+    }
+
+    get entity(): Entity {
+        assert(this.entity_ !== null);
+        return this.entity_!;
+    }
+
+    get opt_entity(): Entity | null {
+        return this.entity_;
+    }
+
     get is_condemned(): boolean {
         return this.is_condemned_;
     }
 
-    /**
-     * Gets the process's active deletion phase. See `<part>.destroy()` for more details.
-     */
-    static get deletion_phase(): DeletionPhase {
-        return DELETION_CX.phase;
-    }
-
     //> Constructors
-    constructor(public readonly parent: Part | null) {
+    constructor(parent: Part | null) {
         super();
-
-        ALIVE_SET.add(this);
-
-        // Validate parent
-        assert(parent === null || !parent.is_condemned_);
-
-        // Add child to parent
-        if (parent !== null) {
-            parent.remaining_children.add(this);
-        }
-
-        // Find parent entity
-        this.opt_parent_entity = parent !== null ?
-            (parent instanceof Entity ? parent : parent.opt_parent_entity) :
-            null;
-    }
-
-    //> Virtual methods
-
-    /**
-     * A virtual handler called on all descendants of a `<part>.destroy()`'ed part. The handler should
-     * finalize anything immediately, instead registering all its finalization tasks with the provided
-     * `CleanupExecutor`. It is allowed, however, to mark other objects for destruction since these
-     * will not actually be finalized until the root call to `.destroy()` resolves.
-     */
-    protected preFinalize(cx: CleanupExecutor) {
-        /* virtual method */
+        this.parent = parent;
     }
 
     //> Tree querying
-
-    /**
-     * Iterates through the object's ancestors from nearest to furthest. Only includes the current
-     * object if `include_self` is `true`.
-     */
     *ancestors(include_self: boolean): IterableIterator<Part> {
-        let target: Part | null = include_self ? this : this.parent;
+        let target: Part | null = include_self ? this : this.parent_;
 
         while (target !== null) {
             yield target;
-            target = target.parent;
+            target = target.parent_;
         }
     }
 
-    /**
-     * Iterates through the object's ancestor `Entities` from nearest to furthest, including its own
-     * `opt_parent_entity`. Mirroring the semantics of `opt_parent_entity`, if this current object is
-     * an `Entity`, it is not included in this iterator.
-     */
     *ancestorEntities(): IterableIterator<Entity> {
-        let target: Entity | null = this.opt_parent_entity;
+        let target: Entity | null = this.entity_;
 
         while (target !== null) {
             yield target;
-            target = target.opt_parent_entity;
+            target = target.entity_;
         }
     }
 
+    *descendants(include_self: boolean, filter: (part: Part) => boolean = () => true): IterableIterator<Part> {
+        if (include_self) {
+            yield this;
+        }
+
+        for (const child of this.children_) {
+            if (filter(child)) {
+                for (const descendant of child.descendants(true, filter)) {
+                    yield descendant;
+                }
+            }
+        }
+    }
+
+    //> Component querying
     tryDeepGet<T>(key: IReadKey<T>): T | undefined {
         for (const ancestor of this.ancestorEntities()) {
             const comp = ancestor.tryGet(key);
@@ -182,151 +200,76 @@ export class Part extends Bindable {
         return comp!;
     }
 
-    //> Lifecycle
-
-    /**
-     * Destroys the target `Part` and all its alive descendants.
-     * 
-     * This process is multi-step:
-     * 
-     * 1. The root-most call to `.destroy()` is made.
-     * 2. The deletion phase is set to `DeletionPhase.DISCOVERY` and can be observed via
-     *    `Part.deletion_phase`.
-     * 3. Destruction candidates are discovered:
-     *      1. The object is condemned. If it was already condemned, the destroy request is ignored.
-     *      2. The object's `.preFinalize()` virtual method is called. This object can mark other objects
-     *         as destruction candidates via `.destroy()` and register finalization tasks with the
-     *         provided `CleanupExecutor`. Exceptions occurring during that call are caught and
-     *         reported.
-     *      3. The object's remaining children are also `.destroy()`'ed, causing this process to
-     *         recurse. Note that condemned nodes cannot be parents of new parts.
-     * 4. The deletion phase is set to `DeletionPhase.FINALIZATION` and can be observed via
-     *    `Part.deletion_phase`.
-     * 5. After control is returned from the root-most `.destroy()` call, the `CleanupExecutor` runs
-     *    all registered finalization tasks according to their dependency order. A few notes:
-     *      - All the rules and semantics imposed by `<CleanupExecutor>.execute()` apply here as well:
-     *        in short, don't access objects you didn't register as finalization dependencies because
-     *        they could be deleted before the finalizer is ran and exceptions are caught and
-     *        reported.
-     *      - Calls to `.destroy()` in these finalizers are queued until the finalizer executor has
-     *        finished running and ran before control is returned to the original caller. Use this
-     *        feature with disgression.
-     *      - Finalizers should feel free to call their instance's `<Bindable>.markFinalized()`
-     *        method to enforce additional safety.
-     *      - Finally, finalizers can use a dependency's `<Part>.is_condemned` field to determine whether
-     *        they wish to actually update it or ignore the updates.
-     * 6. The deletion phase is set to `DeletionPhase.NONE` and can be observed via `Part.deletion_phase`.
-     * 7. If the finalization pass registered additional parts to destroy, these will be handled here
-     *    before returning to the root caller using the same procedure described above.
-     * 8. Control is returned to the original caller.
-     * 
-     * This method never raises exceptions.
-     */
-    // TODO: This still needs considerable code review & unit testing.
+    //> Finalization
     destroy() {
-        // Ignore double-deletions
-        if (this.is_condemned) return;
-
-        // Handle cases
-        if (DELETION_CX.phase === DeletionPhase.NONE) {
-            // We're starting a whole new deletion request.
-
-            // Remove from the parent's remaining children set.
-            if (this.parent !== null) {
-                this.parent.remaining_children.delete(this);
+        // Condemn all the object's descendants if they haven't been condemned yet.
+        if (!this.is_condemned_) {
+            for (const descendant of this.descendants(true, descendant => !descendant.is_condemned_)) {
+                descendant.is_condemned_ = true;
             }
-
-            // Discover deletion candidates recursively
-            const executor = new CleanupExecutor();
-            DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor };
-            this.destroyDiscovery(executor);
-
-            // Handle the finalizer-rediscovery loop
-            while (true) {
-                // Run the finalizers
-                DELETION_CX = { phase: DeletionPhase.FINALIZATION, queued_deletions: new Set() };
-                executor.execute();  // This also can't raise exceptions.
-
-                // Mark affected `Parts` as finalized
-                // TODO
-
-                // Rediscover new destruction candidates if they were registered.
-                const candidates = DELETION_CX.queued_deletions;
-                if (candidates.size > 0) {
-                    // Yes, context reuse works perfectly well.
-                    DELETION_CX = { phase: DeletionPhase.DISCOVERY, executor };
-
-                    for (const candidate of candidates) {
-                        candidate.destroyDiscovery(DELETION_CX.executor);
-                    }
-
-                    // Fallthrough to the finalizer rerun at the top of the loop.
-                    continue;
-                } else {
-                    // Otherwise, finish this process.
-                    break;
-                }
-            }
-
-            // Return control to the user
-            DELETION_CX = { phase: DeletionPhase.NONE };
-            return;
-        } else if (DELETION_CX.phase === DeletionPhase.DISCOVERY) {
-            this.destroyDiscovery(DELETION_CX.executor);
-        } else if (DELETION_CX.phase === DeletionPhase.FINALIZATION) {
-            // We're finalizing objects. Queue the deletion for later.
-            DELETION_CX.queued_deletions.add(this);
-        } else {
-            unreachable();
         }
-    }
 
-    private destroyDiscovery(executor: CleanupExecutor) {
-        // We're discovering new objects to delete.
-        assert(DELETION_CX.phase === DeletionPhase.DISCOVERY);
+        // Prevent reentrancy
+        assert(!this.is_destroying_, ".destroy() is not reentrant");
+        this.is_destroying_ = true;
 
-        // Ignore double-deletions
-        if (this.is_condemned) return;
-
-        // Condemn this object to prevent reentrancy
-        this.is_condemned_ = true;
-        ALIVE_SET.delete(this);
-
-        // Run the virtual finalizer
+        // Call onDestroy
         try {
-            this.preFinalize(executor);
-        } catch (e) {
-            console.error("Exception raised while running", this, "'s .preFinalize() handler:", e);
-        }
+            if (this.onDestroy !== undefined) {
+                this.onDestroy();
+            }
+        } finally {
+            // Ensure that all descendants have been finalized
+            for (const descendant of this.descendants(false, descendant => descendant.is_alive)) {
+                assert(descendant.onDestroy === undefined, "Leaked", descendant);
 
-        // Mark children for destruction
-        for (const child of this.remaining_children) {
-            // TODO: Handle stack overflows??
-            child.destroyDiscovery(executor);
+                // TODO: Justify why this is a valid implementation despite a technical UAF
+                // (`descendants` is implemented weirdly)
+                descendant.markFinalizedInner();
+            }
+
+            // Mark ourselves as finalized.
+            if (this.parent_ !== null) {
+                this.parent_.children_.delete(this);
+            }
+
+            this.markFinalizedInner();
         }
     }
 
-    /**
-     * Makes the current object's properties inaccessible. This must only be called during the
-     * finalization phase of `<part>.destroy()`'s routine (see `<part>.destroy()`'s documentation
-     * for details on the lifecycle) and will emit a warning if that rule is not followed.
-     * 
-     * See `<bindable>.markFinalized` for details.
-     */
-    override markFinalized(): void {
-        assert(Part.deletion_phase === DeletionPhase.FINALIZATION);
+    protected override markFinalized(): void {
+        console.error("Cannot call `markFinalized()` on a `Part` directly. Please go through `destroy()` instead.");
+    }
+
+    private markFinalizedInner() {
         super.markFinalized();
     }
+
+    // This is actually a virtual method.
+    protected onDestroy?(): void;
 }
 
+//> Entity
 export class Entity extends Part {
+    private finalizer: Finalizer | null = null;
+
+    constructor(parent: Part | null, readonly debug_name: string) {
+        super(parent);
+    }
+
     add<T>(comp: T, keys: IWriteKey<T>[]): T {
-        assert(!(comp instanceof Part) || comp.parent_entity === this);
+        assert(!(comp instanceof Part) || comp.opt_entity === this);
 
         for (const key of keys) {
+            assert(!this.has(key));
             key.write(this, comp);
         }
         return comp;
+    }
+
+    with<T>(comp: T, keys: IWriteKey<T>[]): this {
+        this.add(comp, keys);
+        return this;
     }
 
     tryGet<T>(key: IReadKey<T>): T | undefined {
@@ -339,7 +282,22 @@ export class Entity extends Part {
         return comp!;
     }
 
-    has<T>(key: IReadKey<T>): boolean {
+    has(key: IRawKey): boolean {
         return key.has(this);
+    }
+
+    setFinalizer(finalizer: Finalizer) {
+        assert(this.finalizer === null, "Cannot specify more than one finalizer for a given `Entity`.");
+        this.finalizer = finalizer;
+    }
+
+    protected override onDestroy() {
+        if (this.finalizer !== null) {
+            this.finalizer();
+        }
+    }
+
+    override toString() {
+        return `Entity(${this.debug_name})`;
     }
 }

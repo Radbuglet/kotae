@@ -18,6 +18,23 @@ export function extend<T>(arr: T[], from: Iterable<T>) {
 }
 
 export const IterExt = new class {
+    first<T>() {
+
+    }
+
+    any<T>(iter: Iterable<T>, predicate: (value: T) => boolean): boolean {
+        for (const val of iter) {
+            if (predicate(val)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    has<T>(iter: Iterable<T>, value: T): boolean {
+        return this.any(iter, v => v === value) !== null;
+    }
+
     *map<T, R>(iter: Iterable<T>, map: (value: T) => R): IterableIterator<R> {
         for (const elem of iter) {
             yield map(elem);

@@ -10,7 +10,7 @@ export class IrFrame extends Part {
     static readonly KEY = new TypedKey<IrFrame>("IrFrame");
 
     private readonly linked_to_ = new ListenSet<Entity>(this);
-    private readonly link_target_for = new ListenSet<Entity>(this);
+    private readonly link_target_for = new Set<Entity>();
     readonly lines = new ListenArray<IrLine>(this);
 
     // We don't want users accidentally modifying `linked_to_` without first going through
@@ -22,13 +22,13 @@ export class IrFrame extends Part {
     linkTo(target: Entity, bidi: boolean) {
         if (this.linked_to_.add(target)) {
             const target_ir = target.get(IrFrame.KEY);
-            target_ir.link_target_for.add(this.parent_entity);
+            target_ir.link_target_for.add(this.entity);
         }
 
         if (bidi) {
             target
                 .get(IrFrame.KEY)
-                .linkTo(this.parent_entity, false);
+                .linkTo(this.entity, false);
         }
     }
 
@@ -37,13 +37,13 @@ export class IrFrame extends Part {
             target
                 .get(IrFrame.KEY)
                 .link_target_for
-                .delete(this.parent_entity);
+                .delete(this.entity);
         }
 
         if (bidi) {
             target
                 .get(IrFrame.KEY)
-                .unlinkFrom(this.parent_entity, false);
+                .unlinkFrom(this.entity, false);
         }
     }
 
@@ -67,10 +67,25 @@ export class IrFrame extends Part {
         // Destroy the old line
         mergee.destroy();
     }
+
+    protected override onDestroy() {
+        const doc_ir = this.deepGet(IrDocument.KEY);
+
+        if (!doc_ir.is_condemned) {
+            doc_ir.frames.delete(this.entity);
+        }
+
+        this.linked_to_.destroy();
+        this.lines.destroy();
+    }
 }
 
 export class IrLine extends Part {
     readonly blocks = new ListenArray(this);
+
+    protected override onDestroy() {
+
+    }
 }
 
 export class IrBlock extends Part {

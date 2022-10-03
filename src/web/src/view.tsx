@@ -17,8 +17,11 @@ export function DocumentView({ target }: EntityViewProps) {
     const frames = useListenable(target_ir.frames);
 
     const doAddFrame = wrapWeakReceiver(target_ir, target_ir => {
-        const frame = new Entity(target_ir);
-        frame.add(new IrFrame(frame), [IrFrame.KEY]);
+        const frame = new Entity(target_ir, "frame");
+        const frame_ir = frame.add(new IrFrame(frame), [IrFrame.KEY]);
+        frame.setFinalizer(() => {
+            frame_ir.destroy();
+        });
         target_ir.frames.add(frame);
     });
 
@@ -36,8 +39,13 @@ export function FrameView({ target }: EntityViewProps) {
     const target_ir = target.get(IrFrame.KEY);
     const lines = useListenable(target_ir.lines);
 
+    const doDestroy = wrapWeakReceiver(target, target => {
+        target.destroy();
+    });
+
     return <div className="container">
         <h2>Frame</h2>
+        <p> <button onClick={doDestroy}> Destroy </button> </p>
         <p>Line count: {lines.length}</p>
     </div>;
 }

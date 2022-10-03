@@ -3,6 +3,8 @@ const PHANTOM_READ = Symbol();
 
 export interface IRawKey {
     readonly symbol: Symbol;
+
+    has(target: object): boolean;
 }
 
 export interface IWriteKey<T> extends IRawKey {
@@ -16,7 +18,6 @@ export interface IReadKey<T> extends IRawKey {
     readonly [PHANTOM_READ]: () => T;
 
     read(target: object): T | undefined;
-    has(target: object): boolean;
 }
 
 export class TypedKey<T> implements IWriteKey<T>, IReadKey<T> {
