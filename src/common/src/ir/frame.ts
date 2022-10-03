@@ -1,11 +1,13 @@
-import { assert, Entity, IReadonlyListenSet, ListenSet, Part, TypedKey } from "kotae-util";
+import { assert, Entity, IReadonlyListenSet, isValidIndex, ListenArray, ListenSet, Part, TypedKey } from "kotae-util";
 import { IrBoard } from "./board";
+import { IrLine } from "./line";
 
 export class IrFrame extends Part {
     static readonly KEY = new TypedKey<IrFrame>("IrFrame");
 
     private readonly linked_to_ = new ListenSet<Entity>(this);
     private readonly dependents = new Set<Entity>();
+    readonly lines = new ListenArray<Entity>(this);
 
     get linked_to(): IReadonlyListenSet<Entity> {
         return this.linked_to_;
@@ -37,7 +39,38 @@ export class IrFrame extends Part {
         }
     }
 
+    mergeLines(target_index: number, rel: "next" | "prev") {
+        assert(isValidIndex(this.lines.value, target_index));
+
+        // Get indices
+        if (rel === "prev") target_index -= 1;
+        if (target_index < 0) return;
+
+        const mergee_index = target_index + 1;
+        if (mergee_index >= this.lines.length) return;
+
+        const target = this.lines.value[target_index]!;
+        const mergee = this.lines.value[mergee_index]!;
+        const target_ir = target.get(IrLine.KEY);
+        const mergee_ir = mergee.get(IrLine.KEY);
+
+        // Move mergee blocks to target line
+        for (const block of mergee_ir.blocks.value) {
+            block.parent = target_ir;
+            target_ir.blocks.push(block);
+        }
+
+        // Destroy mergee
+        mergee_ir.blocks.clear();
+        mergee.destroy();
+    }
+
     protected override onDestroy() {
+        // Destroy lines
+        for (const line of this.lines.value) {
+            line.destroy();
+        }
+
         // Remove from parent board
         const board_ir = this.deepGet(IrBoard.KEY);
 
@@ -52,5 +85,6 @@ export class IrFrame extends Part {
 
         // Finalize self
         this.linked_to_.destroy();
+        this.lines.destroy();
     }
 }

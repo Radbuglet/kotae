@@ -120,8 +120,10 @@ export class Part extends Bindable {
         if (this.entity_ !== new_entity) {
             this.entity_ = new_entity;
 
-            for (const descendant of this.descendants(false, descendant => !(descendant instanceof Entity))) {
-                descendant.entity_ = this.entity_;
+            if (!(this instanceof Entity)) {
+                for (const descendant of this.descendants(false, descendant => !(descendant instanceof Entity))) {
+                    descendant.entity_ = this.entity_;
+                }
             }
         }
     }

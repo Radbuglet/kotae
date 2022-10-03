@@ -1,4 +1,4 @@
-import { IrDocument, IrFrame } from "kotae-common";
+import { IrBlock, IrBoard, IrFrame, IrLine } from "kotae-common";
 import { Entity, IterExt } from "kotae-util";
 import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "./util";
@@ -8,12 +8,12 @@ export function makeReactRoot(target: Entity) {
         <h1> Kotae :) </h1>
         <p> Footage shown may not reflect final product. </p>
 
-        <DocumentView target={target} />
+        <BoardView target={target} />
     </div>;
 }
 
-export function DocumentView({ target }: EntityViewProps) {
-    const target_ir = target.get(IrDocument.KEY);
+export function BoardView({ target }: EntityViewProps) {
+    const target_ir = target.get(IrBoard.KEY);
     const frames = useListenable(target_ir.frames);
 
     const doAddFrame = wrapWeakReceiver(target_ir, target_ir => {
@@ -26,7 +26,7 @@ export function DocumentView({ target }: EntityViewProps) {
     });
 
     return <div className="container">
-        <h2> Document </h2>
+        <h2> Board (ID: {target.part_id}) </h2>
         <p> Frames: <button onClick={doAddFrame}> Add Frame </button> </p>
         {IterExt.mapIntoArray(
             frames.values(),
@@ -43,9 +43,70 @@ export function FrameView({ target }: EntityViewProps) {
         target.destroy();
     });
 
+    const doAddLine = wrapWeakReceiver(target_ir, target_ir => {
+        const line = new Entity(target_ir, "line");
+        const line_ir = line.add(new IrLine(line), [IrLine.KEY]);
+        line.setFinalizer(() => {
+            line_ir.destroy();
+        });
+        target_ir.lines.push(line);
+    });
+
     return <div className="container">
-        <h2>Frame</h2>
+        <h2> Frame (ID: {target.part_id}) </h2>
+        <p>Lines: <button onClick={doAddLine}> Add Line </button> <button onClick={doDestroy}> Destroy </button> </p>
+        {lines.map(
+            line => <LineView key={line.part_id} target={line} />,
+        )}
+    </div>;
+}
+
+export function LineView({ target }: EntityViewProps) {
+    const target_ir = target.get(IrLine.KEY);
+    const blocks = useListenable(target_ir.blocks);
+
+    const doDestroy = wrapWeakReceiver(target, target => {
+        target.destroy();
+    });
+
+    const doAddBlock = wrapWeakReceiver(target_ir, target_ir => {
+        const block = new Entity(target_ir, "block");
+        const block_ir = block.add(new IrBlock(block), [IrBlock.KEY]);
+        block.setFinalizer(() => {
+            block_ir.destroy();
+        });
+        target_ir.blocks.push(block);
+    });
+
+    const doMerge = (rel: "prev" | "next") => {
+        if (!target_ir.is_alive) return;
+
+        const frame_ir = target_ir.deepGet(IrFrame.KEY);
+        frame_ir.mergeLines(frame_ir.lines.indexOf(target), rel);
+    };
+
+    return <div className="container">
+        <h2> Line (ID: {target.part_id}) </h2>
+        <p>
+            Blocks: { }
+            <button onClick={doAddBlock}> Add Block </button> { }
+            <button onClick={() => doMerge("prev")}> Merge Prev </button> { }
+            <button onClick={() => doMerge("next")}> Merge Next </button> { }
+            <button onClick={doDestroy}> Destroy </button>
+        </p>
+        {blocks.map(
+            block => <BlockView key={block.part_id} target={block} />,
+        )}
+    </div>;
+}
+
+export function BlockView({ target }: EntityViewProps) {
+    const doDestroy = wrapWeakReceiver(target, target => {
+        target.destroy();
+    });
+
+    return <div className="container">
+        <h2> Block  (ID: {target.part_id}) </h2>
         <p> <button onClick={doDestroy}> Destroy </button> </p>
-        <p>Line count: {lines.length}</p>
     </div>;
 }
