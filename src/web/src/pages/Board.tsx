@@ -11,20 +11,20 @@ export default function Board(props: any) {
     const [frames, addFrame] = React.useState(
 	[
 	    //<div>ss </div>,
-	    <DraggableTest
-		x={0}
-		y={0}
-		content={
-		    <div className="frame"> t2asjdflkasd </div>
-		}
-	    />,
-	    <DraggableTest
-		x={0}
-		y={0}
-		content={
-		    <div className="frame"> laksdfffffffffffffffffffff; </div>
-		}
-	    />
+	    //<DraggableTest
+	    //    x={0}
+	    //    y={0}
+	    //    content={
+	    //        <div className="frame"> t2asjdflkasd </div>
+	    //    }
+	    ///>,
+	    //<DraggableTest
+	    //    x={0}
+	    //    y={0}
+	    //    content={
+	    //        <div className="frame"> laksdfffffffffffffffffffff; </div>
+	    //    }
+	    ///>
 	]
     );
 
@@ -43,24 +43,32 @@ export default function Board(props: any) {
     const handleClick = (e: any) => {
 	//e.clientX
 	//e.clientY
-
-	const [absx, absy] = getPlacePosition(e.inputEvent.layerX, e.inputEvent.layerY)
+	//console.log(e)
+	const [absx, absy] = getPlacePosition(e.inputEvent.clientX, e.inputEvent.clientY);
 
 	testAddFrame(absx, absy)
+	//testAddFrame(e.currentTarget.x, e.currentTarget.y)
 	//console.log(e, "here")
     }
 
     const getPlacePosition = (relx: number, rely: number) => {
+
+	const zoom = parseFloat(vref.current.getViewport().style.transform.split("(").at(-1).slice(0, -1))
+
+	const trueWidth = window.innerWidth / zoom
+
+	const percentX = relx / window.innerWidth
+	const convertedX = percentX * trueWidth
+
+	const percentY = rely / window.innerWidth
+	const convertedY = percentY * trueWidth
+
 	const x = vref.current.getScrollLeft(false);
 	const y = vref.current.getScrollTop(false);
 
-	//console.log(relx+x, rely+y, "hi")
-	//const absx = relx+x;
-	//const absy = rely+y;
-	const absx = relx;
-	const absy = rely;
+	const absx = x+convertedX;
+	const absy = y+convertedY;
 	return [absx, absy]
-	//console.log(x +
     }
 
     const testAddFrame = (x: number, y: number) => {
@@ -68,7 +76,10 @@ export default function Board(props: any) {
 		x={x}
 		y={y}
 		content={
-		    <div className="frame"> {Math.random()} </div>
+		    <div className="frame" style={{
+			transform: `translate(${x}px, ${y}px)`,
+			position: "absolute"
+	    }}> {Math.random()} </div>
 		}
 	    />
 	addFrame([...frames, tempFrame])
@@ -77,6 +88,9 @@ export default function Board(props: any) {
     return (
 	<div className=""
 	    //onClick={handleClick}
+		onMouseMove={e => {
+		    //console.log(e.clientX, e.clientY)
+		}}
 	>
 	    <InfiniteViewer
 		className="h-screen bg-gray-500 viewer"

@@ -9,16 +9,19 @@ export default function DraggableTest(props: any) {
 
     //const moveableRef = React.useRef<Moveable>(null);
     //
-    React.useEffect(() => {
-	setTimeout(() => {
-	    moveToCoords(props.x, props.y)
-	}, 10)
-    }, [])
+    //React.useEffect(() => {
+    //    //setTimeout(() => {
+    //    //console.log(movRef.current)
+    //    moveToCoords(props.x, props.y)
+    //    movRef.current.moveable.request("draggable", { x: 100, x: 1000 }, true);
+    //    movRef.current.moveable.updateTarget();
+    //    //}, 1)
+    //}, [movRef.current])
 
-    const moveToCoords = (x: number, y: number) => {
-	console.log("moving", x, y)
-	movRef.current.moveable.request("draggable", { x: x, x: x }, true);
-    }
+    //const moveToCoords = (x: number, y: number) => {
+    //    console.log("moving", x, y)
+    //    movRef.current.moveable.request("draggable", { x: x, x: x }, true);
+    //}
 
     return (
 	<>
@@ -30,21 +33,22 @@ export default function DraggableTest(props: any) {
 	    container={null}
 	    origin={false}
 	    ref={movRef}
-	    onClick={(e) => {
-		console.log(movRef.current, e)
-		//console.log(movRef.current.moveable.request)
+	    //onClick={(e) => {
+	    //    console.log(movRef.current, e)
+	    //    //console.log(movRef.current.moveable.request)
 
-		movRef.current.moveable.request("draggable", { x: 420, y: 69 }, true);
-		//movRef.current.moveable.request("draggable", { deltaX: 10, deltaY: 10 });
-	    }}
+	    //    movRef.current.moveable.request("draggable", { x: 420, y: 69 }, true);
+	    //    //movRef.current.moveable.request("draggable", { deltaX: 10, deltaY: 10 });
+	    //}}
 
 	    /* Resize event edges */
 	    edge={true}
 	    stopPropagation={true}
 
 	    hideDefaultLines={true}
+	    //translateZ={100}
+	    //transformOrigin={["999px", "0px"]}
 	    
-	    defaultX={1000}
 	    //dragTarget={targetRef}
 	    //ref={moveableRef}
 
