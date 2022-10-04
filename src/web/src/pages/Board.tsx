@@ -9,52 +9,16 @@ export default function Board(props: any) {
     const vref = React.useRef<InfiniteViewer>(null);
 
     const [frames, addFrame] = React.useState(
-	[
-	    //<div>ss </div>,
-	    //<DraggableTest
-	    //    x={0}
-	    //    y={0}
-	    //    content={
-	    //        <div className="frame"> t2asjdflkasd </div>
-	    //    }
-	    ///>,
-	    //<DraggableTest
-	    //    x={0}
-	    //    y={0}
-	    //    content={
-	    //        <div className="frame"> laksdfffffffffffffffffffff; </div>
-	    //    }
-	    ///>
-	]
+	[ ]
     );
-
-    //const handleClick = (e: any) => {
-    //    if (e.detail === 2) {
-    //        //console.log("Double click", e.clientX, e.clientY);
-    //        console.log(e, e.target.offsetLeft, e.target.offsetLeft-e.clientX)
-    //        //const mouseX = e.pageX - div.offsetLeft;
-    //        //const mouseY = e.pageY - div.offsetTop;
-    //        testAddFrame();
-    //        console.log(vref.current.getScrollLeft(false))
-    //        console.log(vref.current.getRangeY(false, false))
-    //    }
-    //}
-
     const handleClick = (e: any) => {
-	//e.clientX
-	//e.clientY
-	//console.log(e)
 	const [absx, absy] = getPlacePosition(e.inputEvent.clientX, e.inputEvent.clientY);
-
-	testAddFrame(absx, absy)
-	//testAddFrame(e.currentTarget.x, e.currentTarget.y)
-	//console.log(e, "here")
+	if (e.inputEvent.detail == 2) testAddFrame(absx, absy)
     }
 
     const getPlacePosition = (relx: number, rely: number) => {
 
 	const zoom = parseFloat(vref.current.getViewport().style.transform.split("(").at(-1).slice(0, -1))
-
 	const trueWidth = window.innerWidth / zoom
 
 	const percentX = relx / window.innerWidth
@@ -87,20 +51,10 @@ export default function Board(props: any) {
 
     return (
 	<div className=""
-	    //onClick={handleClick}
-		onMouseMove={e => {
-		    //console.log(e.clientX, e.clientY)
-		}}
 	>
 	    <InfiniteViewer
 		className="h-screen bg-gray-500 viewer"
-		onScroll={e => {
-		    //console.log(vref.current.infiniteViewer.scrollLeft, vref.current.infiniteViewer.scrollTop)
-		    console.log(vref.current.getScrollLeft(false), vref.current.getScrollTop(false))
-		    //console.log(vref.current.getRangeY(false, false))
-		}}
-
-		onClick={handleClick}
+		//onClick={handleClick}
 		//usePinch={true}
 		useMouseDrag={true}
 		useAutoZoom={true}
@@ -110,7 +64,6 @@ export default function Board(props: any) {
 		//displayHorizontalScroll={false}
 
 		onDragStart={e => {
-		    //console.log(e, e.inputEvent.layerX, e.inputEvent.layerY)
 		    handleClick(e)
 		}}
 	    >
