@@ -1,4 +1,4 @@
-import { swapRemove } from "./array";
+import { ArrayExt } from "./array";
 import { TypedKey } from "../primitive/key";
 
 export class ArraySet<T extends object> implements Iterable<T> {
@@ -35,7 +35,7 @@ export class ArraySet<T extends object> implements Iterable<T> {
             this.index_key.remove(element);
 
             // Swap remove from container
-            swapRemove(this.elements, index);
+            ArrayExt.swapRemove(this.elements, index);
             if (index < this.elements.length) {
                 this.index_key.write(this.elements[index]!, index);
             }

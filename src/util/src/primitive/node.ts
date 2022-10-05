@@ -1,6 +1,6 @@
 // TODO: Produce a release build
 
-import { assert } from "../util/debug";
+import { assert, error } from "../util/debug";
 import { IRawKey, IReadKey, IWriteKey } from "./key";
 
 //> Bindable
@@ -240,7 +240,7 @@ export class Part extends Bindable {
     }
 
     protected override markFinalized(): void {
-        console.error("Cannot call `markFinalized()` on a `Part` directly. Please go through `destroy()` instead.");
+        error("Cannot call `markFinalized()` on a `Part` directly. Please go through `destroy()` instead.");
     }
 
     private markFinalizedInner() {

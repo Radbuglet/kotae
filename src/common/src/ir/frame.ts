@@ -1,4 +1,4 @@
-import { assert, Entity, IReadonlyListenSet, isValidIndex, ListenArray, ListenSet, Part, TypedKey } from "kotae-util";
+import { assert, Entity, IReadonlyListenSet, ArrayExt, ListenArray, ListenSet, Part, TypedKey } from "kotae-util";
 import { IrBoard } from "./board";
 import { IrLine } from "./line";
 
@@ -40,7 +40,7 @@ export class IrFrame extends Part {
     }
 
     mergeLines(target_index: number, rel: "next" | "prev") {
-        assert(isValidIndex(this.lines.value, target_index));
+        assert(ArrayExt.isValidIndex(this.lines.value, target_index));
 
         // Get indices
         if (rel === "prev") target_index -= 1;

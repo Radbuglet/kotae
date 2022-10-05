@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "kotae-util": "file:../util"
+    "kotae-util": "file:../util",
+    "gl-matrix": "^3.4.3",
+    "@types/gl-matrix": "^3.2.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

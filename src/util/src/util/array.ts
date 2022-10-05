@@ -1,21 +1,23 @@
 import { assert } from "./debug"
 
-export function isValidIndex<T>(arr: readonly T[], index: number) {
-    return index >= 0 && index < arr.length;
-}
-
-export function swapRemove<T>(arr: T[], index: number) {
-    assert(isValidIndex(arr, index));
-
-    arr[index] = arr[arr.length - 1]!;
-    arr.pop();
-}
-
-export function extend<T>(arr: T[], from: Iterable<T>) {
-    for (const elem of from) {
-        arr.push(elem);
+export const ArrayExt = new class {
+    extend<T>(arr: T[], from: Iterable<T>) {
+        for (const elem of from) {
+            arr.push(elem);
+        }
     }
-}
+
+    swapRemove<T>(arr: T[], index: number) {
+        assert(this.isValidIndex(arr, index));
+
+        arr[index] = arr[arr.length - 1]!;
+        arr.pop();
+    }
+
+    isValidIndex<T>(arr: readonly T[], index: number) {
+        return index >= 0 && index < arr.length;
+    }
+};
 
 export const IterExt = new class {
     first<T>() {

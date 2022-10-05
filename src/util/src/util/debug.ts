@@ -1,6 +1,12 @@
+export function error(...data: any[]) {
+    console.error(...data);
+    debugger;
+}
+
 export function assert(cond: boolean, ...data: any[]): boolean {
-    console.assert(cond, ...data);
-    if (!cond) debugger;
+    if (!cond) {
+        error("Assertion failed:", ...data);
+    }
     return !cond;
 }
 

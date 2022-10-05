@@ -1,6 +1,6 @@
 import { assert } from "../util/debug";
 import { ArgsListOf, callFunc } from "../util/function";
-import { isValidIndex } from "../util";
+import { ArrayExt } from "../util/array";
 import { Part, Weak } from "./node";
 
 //> Signal
@@ -146,7 +146,7 @@ export class ListenArray<T> extends Part implements IReadonlyListenArray<T> {
     }
 
     set(index: number, value: T) {
-        assert(isValidIndex(this.backing, index));
+        assert(ArrayExt.isValidIndex(this.backing, index));
 
         if (this.backing[index] !== value) {
             this.backing[index] = value;
