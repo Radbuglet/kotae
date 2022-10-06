@@ -76,11 +76,10 @@ export class IrFrame extends Part {
 
         if (!board_ir.is_condemned) {
             board_ir.frames.delete(this.parent_entity);
-        }
 
-        // Remove links
-        for (const dependent of this.dependents) {
-            dependent.get(IrFrame.KEY).linked_to_.delete(this.parent_entity);
+            for (const dependent of this.dependents) {
+                dependent.get(IrFrame.KEY).linked_to_.delete(this.parent_entity);
+            }
         }
 
         // Finalize self

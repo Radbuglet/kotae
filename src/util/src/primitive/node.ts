@@ -1,5 +1,6 @@
 // TODO: Produce a release build
 
+import { IterExt } from "../util";
 import { assert, error } from "../util/debug";
 import { IRawKey, IReadKey, IWriteKey } from "./key";
 
@@ -182,6 +183,14 @@ export class Part extends Bindable {
                 }
             }
         }
+    }
+
+    isAncestorOf(maybe_descendant: Part): boolean {
+        return IterExt.has(maybe_descendant.ancestors(true), this);
+    }
+
+    isDescendantOf(maybe_ancestor: Part): boolean {
+        return maybe_ancestor.isAncestorOf(this);
     }
 
     //> Component querying
