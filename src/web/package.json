@@ -5,6 +5,7 @@
     "@tiptap/core": "^2.0.0-beta.199",
     "@tiptap/react": "^2.0.0-beta.199",
     "@tiptap/starter-kit": "^2.0.0-beta.199",
+    "@tiptap/suggestion": "^2.0.0-beta.199",
     "kotae-common": "file:../common",
     "kotae-util": "file:../util",
     "react": "^18.2.0",
