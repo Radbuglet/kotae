@@ -39,6 +39,7 @@ export default function Board(props: any) {
 	const tempFrame = <DraggableTest
 		x={x}
 		y={y}
+		// nick will be butting his stuff in this div below
 		content={
 		    <div className="frame" style={{
 			transform: `translate(${x}px, ${y}px)`,
