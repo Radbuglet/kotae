@@ -43,7 +43,27 @@ export default function Board(props: any) {
 		    <div className="frame" style={{
 			transform: `translate(${x}px, ${y}px)`,
 			position: "absolute"
-	    }}> {Math.random()} </div>
+			}}> {Math.random()}
+			{/*<p
+			    className="bg-blue-700"
+			    onClick={ e => {
+				//e.target.focus()
+				e.stopPropagation()
+				// e.preventDefault()
+				console.log(e, "yee")
+				//e.stopPropagation()
+
+			    }}
+			    //contentEditable={true}
+
+			></p> */}
+			<input
+			    onClick={ e => {
+				console.log("Whee")
+				e.stopPropagation()
+			    }}
+			/>
+			</div>
 		}
 	    />
 	addFrame([...frames, tempFrame])
@@ -64,7 +84,11 @@ export default function Board(props: any) {
 		//displayHorizontalScroll={false}
 
 		onDragStart={e => {
+		    console.log("Woo", e);
 		    handleClick(e)
+		    if (e.inputEvent.path[0]?.tagName == "INPUT") {
+			throw "";
+		    }
 		}}
 	    >
 		<div>
@@ -72,7 +96,10 @@ export default function Board(props: any) {
 			{...frame}
 		    ))}
 
-		    <div className="w-20 h-20 bg-red-500">  yeahhh </div>
+		    <div className="w-20 h-20 bg-red-500"> 
+			yeahhh 
+			<input />
+		    </div>
 		</div>
 	    </InfiniteViewer>
 	    </div>

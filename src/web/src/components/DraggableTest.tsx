@@ -5,10 +5,14 @@ export default function DraggableTest(props: any) {
 
 
     const targetRef = React.useRef<HTMLDivElement>(null);
+    const inputRef = React.useRef<HTMLInputElement>(null);
+    const dragHandleRef = React.useRef<HTMLDivElement>(null);
 
     return (
 	<>
-	    <div ref={targetRef} className="" style={{width: "min-content"}}>
+	    {/*<div className="border-2 border-red-500" ref={dragHandleRef}> draggy draggy </div>*/}
+
+	    <div ref={targetRef} className="border-2 border-blue-500" style={{width: "min-content"}}>
 		{props.content}
 	    </div>
 	<Moveable
@@ -21,6 +25,10 @@ export default function DraggableTest(props: any) {
 	    stopPropagation={true}
 
 	    hideDefaultLines={true}
+
+	    //dragTarget={<div> hii </div>}
+	    //checkInput={true}
+	    //dragArea={true}
 
 	    /* draggable */
 	    draggable={true}
@@ -38,9 +46,18 @@ export default function DraggableTest(props: any) {
 		clientX, clientY,
 	    }: OnDrag) => {
 		target!.style.transform = transform;
+		//console.log("onDrag");
 	    }}
-	    onDragEnd={({ target, isDrag, clientX, clientY }) => {
-		console.log("onDragEnd", target, isDrag);
+	    onDragEnd={(e) => {
+		console.log(e.inputEvent.detail);
+		console.log(e, "onDragEnd");
+		//if (e.inputEvent.detail === 2 && e.isDrag === false) {
+		if (e.isDrag === false) {
+		    //console.log("not a drag")
+		    //e.inputEvent.path[0].focus();
+		    //e.inputEvent.path[0].click()
+		    //inputRef.current.focus()
+		}
 	    }}
 
 	/>
