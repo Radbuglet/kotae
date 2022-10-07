@@ -1,15 +1,18 @@
 import { IrBlock, IrBoard, IrFrame, IrLine } from "kotae-common";
 import { Entity, IterExt } from "kotae-util";
 import * as React from "react";
-import { EntityViewProps, useListenable, wrapWeakReceiver } from "./util";
+import { PanAndZoom } from "./util/pan";
+import { EntityViewProps, useListenable, wrapWeakReceiver } from "./util/util";
 
 export function makeReactRoot(target: Entity) {
-    return <div>
+    return <>
         <h1> Kotae :) </h1>
         <p> Footage shown may not reflect final product. </p>
 
-        <BoardView target={target} />
-    </div>;
+        <PanAndZoom viewport_props={{ style: { width: "100%", height: "90vh", border: "1px solid" } }}>
+            <BoardView target={target} />
+        </PanAndZoom>
+    </>;
 }
 
 export function BoardView({ target }: EntityViewProps) {
@@ -25,7 +28,7 @@ export function BoardView({ target }: EntityViewProps) {
         target_ir.frames.add(frame);
     });
 
-    return <div className="container">
+    return <div className="container" style={{ width: "50vw" }}>
         <h2> Board (ID: {target.part_id}) </h2>
         <p> Frames: <button onClick={doAddFrame}> Add Frame </button> </p>
         {IterExt.mapIntoArray(
@@ -71,7 +74,7 @@ export function LineView({ target }: EntityViewProps) {
 
     const doAddBlock = wrapWeakReceiver(target_ir, target_ir => {
         const block = new Entity(target_ir, "block");
-        const block_ir = block.add(new IrBlock(block), [IrBlock.KEY]);
+        const block_ir = block.add(new IrBlock(block, null!), [IrBlock.KEY]);  // FIXME
         block.setFinalizer(() => {
             block_ir.destroy();
         });
