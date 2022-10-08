@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ReadonlyVec2, vec2 } from "gl-matrix";
+import { ReadonlyMat3, ReadonlyVec2, vec2 } from "gl-matrix";
 import PanClasses from "./pan.module.css";
 
 //> Helpers
@@ -26,8 +26,23 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
     private readonly overflow = React.createRef<HTMLDivElement>();
     private readonly container = React.createRef<HTMLDivElement>();
 
-    private xform_center_ = vec2.create();
-    private visible_center_ = vec2.create();
+    /**
+     * The position of the center of the "overflow" container.
+     * 
+     * This vector will not be mutated.
+     */
+    private xform_center_: ReadonlyVec2 = vec2.create();
+
+    /**
+     * The position at the center of the viewport, taking scroll into account.
+     * 
+     * This vector will not be mutated.
+     */
+    private active_center_: ReadonlyVec2 = vec2.create();
+
+    /**
+     * The zoom (scale) coefficient.
+     */
     private zoom_: number = 1;
 
     //> Constructors
@@ -39,16 +54,16 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 
     //> Public Interface
     get virtual_scroll_margin(): number {
-        return Math.max(this.props.virtual_scroll_margin || 1500, 5);
+        return Math.max(this.props.virtual_scroll_margin || 1500, 5) * this.zoom_;
     }
 
     get center(): ReadonlyVec2 {
-        return this.visible_center_;
+        return this.active_center_;
     }
 
     set center(vec: ReadonlyVec2) {
-        vec2.copy(this.visible_center_, vec);
-        this.recenterScrollBars();
+        this.center = vec2.clone(vec);
+        this.recenter();
     }
 
     get zoom(): number {
@@ -57,11 +72,11 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 
     set zoom(value: number) {
         this.zoom_ = value;
-        this.recenterScrollBars();
+        this.recenter();
     }
 
     //> Internals
-    private computeScrollCenter(out: vec2 = vec2.create()) {
+    private computeActiveCenter(out: vec2 = vec2.create()) {
         const viewport = this.viewport.current!;
 
         // Get the offset of the `target` from the actual scroll position
@@ -84,34 +99,45 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
         return `scale(${this.zoom_}) translate(${-this.xform_center_[0]}px, ${-this.xform_center_[1]}px) translate(50%, 50%)`;
     }
 
-    recenterScrollBars() {
-        vec2.copy(this.xform_center_, this.visible_center_);
+    private computeOverflowStyles(): React.CSSProperties {
+        const vs_margin = this.virtual_scroll_margin;
 
-        // We update this immediately to avoid going through React re-rendering, which would
-        // introduce a 1 frame delay.
-        this.container.current!.style.transform = this.computeViewportTransformStr();
-
-        // Now, we just reset the actual scroll bar position.
-        this.centerScrollBarsPassive();
+        return {
+            width: `calc(100% + ${2 * vs_margin}px)`,
+            height: `calc(100% + ${2 * vs_margin}px)`,
+        };
     }
 
-    private centerScrollBarsPassive() {
+    recenter() {
+        // Move the transform center to the previously computed active center.
+        this.xform_center_ = this.active_center_;
+
+        // Update the container style immediately to avoid going through React re-rendering, which
+        // could introduce delays because of async reconciliation. This is just a heuristic and should
+        // not be relied upon for correctness (hence the `forceUpdate`—manual re-rendering is not
+        // really a good thing to rely upon)
+        this.container.current!.style.transform = this.computeViewportTransformStr();
+        Object.assign(this.overflow.current!.style, this.computeOverflowStyles());
+
+        // Register this component for a complete re-rendering.
+        this.forceUpdate();
+
+        // Now, we just reset the actual scroll bar position.
+        this.moveBarsToCenter();
+    }
+
+    private moveBarsToCenter() {
         const scroll_target = this.virtual_scroll_margin;
         this.viewport.current!.scrollTo(scroll_target, scroll_target);
     }
 
     //> Lifecycle
     override componentDidMount() {
-        this.centerScrollBarsPassive();
+        this.moveBarsToCenter();
     }
 
     override render() {
-        const vs_margin = this.virtual_scroll_margin;
-        const overflow_styles: React.CSSProperties = {
-            width: `calc(100% + ${2 * vs_margin}px)`,
-            height: `calc(100% + ${2 * vs_margin}px)`,
-        };
-
+        const overflow_styles = this.computeOverflowStyles();
         const container_styles: React.CSSProperties = {
             transform: this.computeViewportTransformStr(),
         };
@@ -123,7 +149,7 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
                 const viewport = this.viewport.current!;
 
                 // Update visible center cache
-                this.computeScrollCenter(this.visible_center_);
+                this.active_center_ = this.computeActiveCenter();
 
                 // Recenter the scroll bars if necessary
                 const should_reset_scroll =
@@ -134,7 +160,7 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
                     approxEq(viewport.scrollHeight - viewport.scrollTop, viewport.clientHeight);
 
                 if (should_reset_scroll) {
-                    this.recenterScrollBars();
+                    this.recenter();
                 }
             }}
             {...this.props.viewport_props}
