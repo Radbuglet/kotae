@@ -31,8 +31,9 @@ export function AppRoot({ target }: EntityViewProps) {
                 style: { width: "100%", height: "90vh", border: "1px solid" },
                 onClick(e) {
                     const paz = pan_and_zoom.current!;
+                    if (!paz.isHelperElement(e.target)) return;
 
-                    const bb = paz.viewport_element.getBoundingClientRect();
+                    const bb = paz.viewport.getBoundingClientRect();
                     const pos: vec2 = [
                         e.clientX - bb.left,
                         e.clientY - bb.top,

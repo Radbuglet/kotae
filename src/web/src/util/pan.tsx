@@ -4,7 +4,7 @@ import PanClasses from "./pan.module.css";
 
 //> Helpers
 function approxEq(a: number, b: number) {
-    return Math.abs(a - b) < 5;
+    return Math.abs(a - b) < 5;  // (chosen by a fair dice roll)
 }
 
 //> PanAndZoom
@@ -20,9 +20,9 @@ type PanAndZoomState = Readonly<{}>;
 
 export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState> {
     //> Fields
-    private readonly viewport_ = React.createRef<HTMLDivElement>();
-    private readonly overflow_ = React.createRef<HTMLDivElement>();
-    private readonly container_ = React.createRef<HTMLDivElement>();
+    private readonly viewport_ref = React.createRef<HTMLDivElement>();
+    private readonly overflow_ref = React.createRef<HTMLDivElement>();
+    private readonly container_ref = React.createRef<HTMLDivElement>();
 
     /**
      * The position of the center of the "overflow" container.
@@ -74,62 +74,69 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
     }
 
     computeOverflowToWorldXform(): mat3 {
-        // TODO: Get zoom working.
-        const overflow = this.overflow_.current!;
+        const overflow = this.overflow;
 
         const out = mat3.create();
 
-        // First, translate the center of the overflow container to the origin.
+        // N.B. Matrix multiplication is backwards. Deal with it.
+
+        // Op 3: translate the origin to the xform center
+        mat3.translate(out, out, this.xform_center_);
+
+        // Op 2: scale the coordinate space.
+        mat3.scale(out, out, [1 / this.zoom_, 1 / this.zoom_]);
+
+        // Op 1: translate the center of the overflow container to the origin.
         mat3.translate(out, out, [
             -overflow.clientWidth / 2,
             -overflow.clientHeight / 2,
         ]);
 
-        // Then, scale the coordinate space.
-        mat3.scale(out, out, [this.zoom_, this.zoom_]);
-
-        // Finally, translate the origin to the xform center
-        mat3.translate(out, out, this.xform_center_);
-
         return out;
     }
 
     computeViewportToWorldXform(overflow_to_world: ReadonlyMat3 = this.computeOverflowToWorldXform()): mat3 {
-        const viewport = this.viewport_.current!;
-        const overflow = this.overflow_.current!;
+        const viewport = this.viewport;
+        const overflow = this.overflow;
 
         const viewport_bb = viewport.getBoundingClientRect();
         const overflow_bb = overflow.getBoundingClientRect();
 
         const out = mat3.create();
 
-        // Translate into overflow coordinates
+        // Op 2: Apply "overflow to world" xform
+        mat3.mul(out, out, overflow_to_world);
+
+        // Op 1: Translate into overflow coordinates
         mat3.translate(out, out, [
             viewport_bb.left - overflow_bb.left,
             viewport_bb.top - overflow_bb.top,
         ]);
 
-        // Apply "overflow to world" xform
-        mat3.mul(out, out, overflow_to_world);
-
         return out;
     }
 
-    get viewport_element(): HTMLDivElement {
-        return this.viewport_.current!;
+    isHelperElement(target: EventTarget) {
+        return target === this.viewport ||
+            target === this.overflow ||
+            target === this.container
     }
 
-    get overflow_element(): HTMLDivElement {
-        return this.overflow_.current!;
+    get viewport(): HTMLDivElement {
+        return this.viewport_ref.current!;
     }
 
-    get container_element(): HTMLDivElement {
-        return this.container_.current!;
+    get overflow(): HTMLDivElement {
+        return this.overflow_ref.current!;
+    }
+
+    get container(): HTMLDivElement {
+        return this.container_ref.current!;
     }
 
     //> Internals
     recomputeCenter() {
-        const viewport = this.viewport_.current!;
+        const viewport = this.viewport;
         const out = vec2.create();
 
         // Get the offset of the `target` from the actual scroll position
@@ -170,8 +177,8 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
         // could introduce delays because of async reconciliation. This is just a heuristic and should
         // not be relied upon for correctness (hence the `forceUpdate`—manual re-rendering is not
         // really a good thing to rely upon)
-        this.container_.current!.style.transform = this.computeViewportTransformStr();
-        Object.assign(this.overflow_.current!.style, this.computeOverflowStyles());
+        this.container.style.transform = this.computeViewportTransformStr();
+        Object.assign(this.overflow.style, this.computeOverflowStyles());
 
         // Register this component for a complete re-rendering.
         this.forceUpdate();
@@ -182,7 +189,7 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 
     private moveBarsToCenter() {
         const scroll_target = this.virtual_scroll_margin;
-        this.viewport_.current!.scrollTo(scroll_target, scroll_target);
+        this.viewport.scrollTo(scroll_target, scroll_target);
     }
 
     //> Lifecycle
@@ -198,10 +205,10 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 
         return <div
             // viewport
-            ref={this.viewport_}
+            ref={this.viewport_ref}
             className={`${PanClasses["viewport"]} ${PanClasses["hide-scrollbars"]}`}
             onScroll={() => {
-                const viewport = this.viewport_.current!;
+                const viewport = this.viewport;
 
                 // Update visible center cache
                 this.recomputeCenter();
@@ -222,16 +229,17 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
         >
             <div
                 // overflow
-                ref={this.overflow_}
+                ref={this.overflow_ref}
                 className={PanClasses["overflow"]}
                 style={overflow_styles}
                 {...this.props.overflow_props}
             >
                 <div
                     // container
-                    ref={this.container_}
+                    ref={this.container_ref}
                     className={PanClasses["container"]}
                     style={container_styles}
+                    {...this.props.container_props}
                 >
                     {this.props.children}
                 </div>
