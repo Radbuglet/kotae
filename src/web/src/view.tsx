@@ -1,4 +1,4 @@
-import { vec2 } from "gl-matrix";
+import { ReadonlyVec2, vec2 } from "gl-matrix";
 import { IrBlock, IrBoard, IrFrame, IrLine } from "kotae-common";
 import { Entity, IterExt } from "kotae-util";
 import * as React from "react";
@@ -6,7 +6,12 @@ import { PanAndZoom } from "./util/pan";
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "./util/util";
 
 export function makeReactRoot(target: Entity) {
-    const pan_and_zoom = React.createRef<PanAndZoom>();
+    return <AppRoot target={target} />;
+}
+
+export function AppRoot({ target }: EntityViewProps) {
+    const pan_and_zoom = React.useRef<PanAndZoom>(null);
+    const [squares, setSquares] = React.useState<ReadonlyVec2[]>([]);
 
     return <>
         <h1> Kotae :) </h1>
@@ -20,8 +25,35 @@ export function makeReactRoot(target: Entity) {
                 paz.zoom = 1;
             }}> Reset </button>
         </p>
-        <PanAndZoom viewport_props={{ style: { width: "100%", height: "90vh", border: "1px solid" } }} ref={pan_and_zoom}>
+        <PanAndZoom
+            ref={pan_and_zoom}
+            viewport_props={{
+                style: { width: "100%", height: "90vh", border: "1px solid" },
+                onClick(e) {
+                    const paz = pan_and_zoom.current!;
+
+                    const bb = paz.viewport_element.getBoundingClientRect();
+                    const pos: vec2 = [
+                        e.clientX - bb.left,
+                        e.clientY - bb.top,
+                    ];
+
+                    vec2.transformMat3(pos, pos, paz.computeViewportToWorldXform());
+                    setSquares([...squares, pos]);
+                },
+            }}
+        >
             <BoardView target={target} />
+            {squares.map((pos, i) => {
+                return <div key={i} style={{
+                    position: "absolute",
+                    background: "red",
+                    left: `${pos[0] - 5}px`,
+                    top: `${pos[1] - 5}px`,
+                    width: "10px",
+                    height: "10px"
+                }} />;
+            })}
         </PanAndZoom>
     </>;
 }
