@@ -1,3 +1,4 @@
+import { vec2 } from "gl-matrix";
 import { IrBlock, IrBoard, IrFrame, IrLine } from "kotae-common";
 import { Entity, IterExt } from "kotae-util";
 import * as React from "react";
@@ -5,11 +6,21 @@ import { PanAndZoom } from "./util/pan";
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "./util/util";
 
 export function makeReactRoot(target: Entity) {
+    const pan_and_zoom = React.createRef<PanAndZoom>();
+
     return <>
         <h1> Kotae :) </h1>
         <p> Footage shown may not reflect final product. </p>
 
-        <PanAndZoom viewport_props={{ style: { width: "100%", height: "90vh", border: "1px solid" } }}>
+        <p>
+            <button onClick={() => pan_and_zoom.current!.zoom += 0.1}> Zoom and Enhance </button> { }
+            <button onClick={() => {
+                const paz = pan_and_zoom.current!;
+                paz.center = vec2.create();
+                paz.zoom = 1;
+            }}> Reset </button>
+        </p>
+        <PanAndZoom viewport_props={{ style: { width: "100%", height: "90vh", border: "1px solid" } }} ref={pan_and_zoom}>
             <BoardView target={target} />
         </PanAndZoom>
     </>;
