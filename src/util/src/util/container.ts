@@ -1,8 +1,8 @@
-import { swapRemove } from "./array";
+import { ArrayExt } from "./array";
 import { TypedKey } from "../primitive/key";
 
-export class ArraySet<T extends object> {
-    private elements_: T[] = [];
+export class ArraySet<T extends object> implements Iterable<T> {
+    private elements: T[] = [];
 
     constructor(
         private readonly index_key: TypedKey<number> = new TypedKey<number>(),
@@ -15,8 +15,8 @@ export class ArraySet<T extends object> {
 
     add(element: T): boolean {
         if (this.indexOf(element) === undefined) {
-            this.index_key.write(element, this.elements_.length);
-            this.elements_.push(element);
+            this.index_key.write(element, this.elements.length);
+            this.elements.push(element);
             return true;
         } else {
             return false;
@@ -35,9 +35,9 @@ export class ArraySet<T extends object> {
             this.index_key.remove(element);
 
             // Swap remove from container
-            swapRemove(this.elements_, index);
-            if (index < this.elements_.length) {
-                this.index_key.write(this.elements_[index]!, index);
+            ArrayExt.swapRemove(this.elements, index);
+            if (index < this.elements.length) {
+                this.index_key.write(this.elements[index]!, index);
             }
             return true;
         } else {
@@ -45,18 +45,26 @@ export class ArraySet<T extends object> {
         }
     }
 
-    clear() {
+    clear(): T[] {
+        const old = this.elements;
         for (const element of this.elements) {
             this.index_key.remove(element);
         }
-        this.elements_ = [];
+        this.elements = [];
+        return old;
     }
 
-    get elements(): readonly T[] {
-        return this.elements_;
+    *[Symbol.iterator](): IterableIterator<T> {
+        for (const element of this.elements) {
+            yield element;
+        }
+    }
+
+    get raw_elements(): readonly T[] {
+        return this.elements;
     }
 
     get size(): number {
-        return this.elements_.length;
+        return this.elements.length;
     }
 }

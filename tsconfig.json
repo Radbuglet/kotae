@@ -13,5 +13,6 @@
         "useUnknownInCatchVariables": true,
         "forceConsistentCasingInFileNames": true,
         "jsx": "react",
+        "allowSyntheticDefaultImports": true,
     }
 }

@@ -1,74 +1,199 @@
-import { ArraySet } from "../util/container";
-import { assert } from "../util/debug";
-import { Bindable, CleanupExecutor } from "./bindable";
-import { IReadKey, IWriteKey, TypedKey } from "./key";
+// TODO: Produce a release build
+
+import { IterExt } from "../util";
+import { assert, error } from "../util/debug";
+import { IRawKey, IReadKey, IWriteKey } from "./key";
+
+//> Bindable
+export const UNSAFE_BINDABLE_BACKING = Symbol("UNSAFE_BINDABLE_BACKING");
+
+const DBG_ALIVE_SET = (window as any)["dbg_alive_set"] = new Set<Bindable>();
+
+export type Weak<T extends Bindable> =
+    ({ readonly is_alive: false, readonly [UNSAFE_BINDABLE_BACKING]: T, readonly unwrapped: T }) |
+    // N.B. the `true | false` thing here is a *massive hack* to get around TypeScript self-type jank.
+    // Essentially, when one attempts to construct the second intersection type, `this` resolves to a
+    // type where `is_alive: true`, which is incompatible with `T` where `is_alive: true | false`.
+    // At least... that's what I think is going on. I can't actually find any documentation on this
+    // behavior. Anyways, `true | false` fixes everything but is still *good enough* for safety since
+    // `is_alive: false` still allows the former case to resolve and narrow the type.
+    ({ readonly is_alive: true | false } & T);
+
+export class Bindable {
+    private is_alive_ = true;
+
+    // N.B. this impl is only called when the proxy has been stripped via
+    // `UNSAFE_BINDABLE_BACKING`; otherwise, it's intercepted by the proxy.
+    get [UNSAFE_BINDABLE_BACKING](): this {
+        return this;
+    }
+
+    get unwrapped(): this {
+        return this;
+    }
+
+    constructor() {
+        DBG_ALIVE_SET.add(this);
+
+        const backing = this;
+
+        const can_access = (target: this, key: string | symbol) => {
+            return target.is_alive_ ||
+                key === "is_alive" ||
+                key === UNSAFE_BINDABLE_BACKING;
+        };
+
+        return new Proxy(backing, {
+            get(target, key) {
+                assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
+
+                if (key === UNSAFE_BINDABLE_BACKING) {
+                    return backing;
+                }
+
+                // Safety: provided by type checker
+                return (backing as any)[key];
+            },
+            set(target, key, value) {
+                assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
+
+                (target as any)[key] = value;
+                return true;
+            }
+        });
+    }
+
+    get is_alive(): boolean {
+        return this.is_alive_;
+    }
+
+    asWeak(): Weak<this> {
+        return this;
+    }
+
+    protected markFinalized() {
+        assert(this.is_alive_);
+        this.is_alive_ = false;
+        DBG_ALIVE_SET.delete(this[UNSAFE_BINDABLE_BACKING]);
+    }
+}
 
 //> Part
-let ID_GEN = 0;
+let PART_ID_GEN = 0;
 
-const PART_CHILD_INDEX_KEY = new TypedKey<number>();
+export type Finalizer = () => void;
 
 export class Part extends Bindable {
-    //> Fields
-    public readonly part_id = ID_GEN++;
-    public readonly opt_parent_entity: Entity | null = null;
-    private readonly children_ = new ArraySet<Part>(PART_CHILD_INDEX_KEY);
+    //> Properties & fields
+    readonly part_id = PART_ID_GEN++;
+    private parent_: Part | null = null;
+    private entity_: Entity | null = null;
+    private children_ = new Set<Part>();
     private is_condemned_ = false;
+    private is_destroying_ = false;
 
-    //> Constructors
-    constructor(public readonly parent: Part | null) {
-        super();
+    get parent(): Part | null {
+        return this.parent_;
+    }
 
-        // Validate parent
-        assert(parent === null || !parent.is_condemned_);
-
-        // Add child to parent
-        if (parent !== null) {
-            parent.children_.add(this);
+    set parent(new_parent: Part | null) {
+        if (assert(!this.is_condemned_, "Cannot move condemned parts!")) {
+            return;
         }
 
-        // Find parent entity
-        for (const ancestor of this.ancestors(false)) {
-            if (ancestor instanceof Entity) {
-                this.opt_parent_entity = ancestor;
-                break;
+        // TODO: Detect recursive trees
+
+        // Update `Part.children`
+        if (this.parent_ !== null) {
+            this.parent_.children_.delete(this);
+        }
+
+        this.parent_ = new_parent;
+        if (this.parent_ !== null) {
+            this.parent_.children_.add(this);
+        }
+
+        // Update nearest entity
+        const new_entity = this.parent_ === null
+            ? null
+            : (this.parent_ instanceof Entity ? this.parent_ : this.parent_.entity_);
+
+        if (this.entity_ !== new_entity) {
+            this.entity_ = new_entity;
+
+            if (!(this instanceof Entity)) {
+                for (const descendant of this.descendants(false, descendant => !(descendant instanceof Entity))) {
+                    descendant.entity_ = this.entity_;
+                }
             }
         }
     }
 
-    //> Virtual methods
-    protected onDestroy(cx: CleanupExecutor) {
-        /* virtual method */
+    get children(): ReadonlySet<Part> {
+        return this.children_;
+    }
+
+    get parent_entity(): Entity {
+        assert(this.entity_ !== null);
+        return this.entity_!;
+    }
+
+    get opt_parent_entity(): Entity | null {
+        return this.entity_;
+    }
+
+    get is_condemned(): boolean {
+        return this.is_condemned_;
+    }
+
+    //> Constructors
+    constructor(parent: Part | null) {
+        super();
+        this.parent = parent;
     }
 
     //> Tree querying
-    get parent_entity(): Entity {
-        assert(this.opt_parent_entity !== null);
-        return this.opt_parent_entity!;
-    }
-
-    get children(): readonly Part[] {
-        return this.children_.elements;
-    }
-
     *ancestors(include_self: boolean): IterableIterator<Part> {
-        let target: Part | null = include_self ? this : this.parent;
+        let target: Part | null = include_self ? this : this.parent_;
 
         while (target !== null) {
             yield target;
-            target = target.parent;
+            target = target.parent_;
         }
     }
 
     *ancestorEntities(): IterableIterator<Entity> {
-        let target: Entity | null = this.opt_parent_entity;
+        let target: Entity | null = this.entity_;
 
         while (target !== null) {
             yield target;
-            target = target.opt_parent_entity;
+            target = target.entity_;
         }
     }
 
+    *descendants(include_self: boolean, filter: (part: Part) => boolean = () => true): IterableIterator<Part> {
+        if (include_self) {
+            yield this;
+        }
+
+        for (const child of this.children_) {
+            if (filter(child)) {
+                for (const descendant of child.descendants(true, filter)) {
+                    yield descendant;
+                }
+            }
+        }
+    }
+
+    isAncestorOf(maybe_descendant: Part): boolean {
+        return IterExt.has(maybe_descendant.ancestors(true), this);
+    }
+
+    isDescendantOf(maybe_ancestor: Part): boolean {
+        return maybe_ancestor.isAncestorOf(this);
+    }
+
+    //> Component querying
     tryDeepGet<T>(key: IReadKey<T>): T | undefined {
         for (const ancestor of this.ancestorEntities()) {
             const comp = ancestor.tryGet(key);
@@ -86,61 +211,76 @@ export class Part extends Bindable {
         return comp!;
     }
 
-    //> Lifecycle
-    get is_condemned(): boolean {
-        return this.is_condemned_;
-    }
-
+    //> Finalization
     destroy() {
-        // Ignore double-deletions
-        if (this.is_condemned) return;
-
-        // Collect descendants & condemn them
-        const descendants: Part[] = [];
-        const condemnDeep = (target: Part) => {
-            target.is_condemned_ = true;
-            descendants.push(target);
-
-            for (const child of target.children) {
-                condemnDeep(child);
-            }
-        };
-
-        condemnDeep(this);
-
-        // Run user tear-down code
-        try {
-            // Collect destructors & run
-            CleanupExecutor.run(cx => {
-                for (const descendant of descendants) {
-                    descendant.onDestroy(cx);
-                }
-            });
-        } finally {
-            // Remove from parent
-            if (this.parent !== null) {
-                this.parent.children_.delete(this);
-            }
-
-            // Finalize remaining parts
-            // (we have to immediately return after this or everything breaks!)
-            for (const descendant of descendants) {
-                if (descendant.is_alive) {
-                    descendant.markFinalized();
-                }
+        // Condemn all the object's descendants if they haven't been condemned yet.
+        if (!this.is_condemned_) {
+            for (const descendant of this.descendants(true, descendant => !descendant.is_condemned_)) {
+                descendant.is_condemned_ = true;
             }
         }
+
+        // Prevent reentrancy
+        assert(!this.is_destroying_, ".destroy() is not reentrant");
+        this.is_destroying_ = true;
+
+        // Call onDestroy
+        try {
+            if (this.onDestroy !== undefined) {
+                this.onDestroy();
+            }
+        } finally {
+            // Ensure that all descendants have been finalized
+            for (const descendant of this.descendants(false, descendant => descendant.is_alive)) {
+                assert(descendant.onDestroy === undefined, "Leaked", descendant);
+
+                // TODO: Justify why this is a valid implementation despite a technical UAF
+                // (`descendants` is implemented weirdly)
+                descendant.markFinalizedInner();
+            }
+
+            // Mark ourselves as finalized.
+            if (this.parent_ !== null) {
+                this.parent_.children_.delete(this);
+            }
+
+            this.markFinalizedInner();
+        }
     }
+
+    protected override markFinalized(): void {
+        error("Cannot call `markFinalized()` on a `Part` directly. Please go through `destroy()` instead.");
+    }
+
+    private markFinalizedInner() {
+        super.markFinalized();
+    }
+
+    // This is actually a virtual method.
+    protected onDestroy?(): void;
 }
 
+//> Entity
 export class Entity extends Part {
+    private finalizer: Finalizer | null = null;
+
+    constructor(parent: Part | null, readonly debug_name: string) {
+        super(parent);
+    }
+
     add<T>(comp: T, keys: IWriteKey<T>[]): T {
-        assert(!(comp instanceof Part) || comp.parent_entity === this);
+        assert(!(comp instanceof Part) || comp.opt_parent_entity === this);
 
         for (const key of keys) {
+            assert(!this.has(key));
             key.write(this, comp);
         }
         return comp;
+    }
+
+    with<T>(comp: T, keys: IWriteKey<T>[]): this {
+        this.add(comp, keys);
+        return this;
     }
 
     tryGet<T>(key: IReadKey<T>): T | undefined {
@@ -153,7 +293,22 @@ export class Entity extends Part {
         return comp!;
     }
 
-    has<T>(key: IReadKey<T>): boolean {
+    has(key: IRawKey): boolean {
         return key.has(this);
+    }
+
+    setFinalizer(finalizer: Finalizer) {
+        assert(this.finalizer === null, "Cannot specify more than one finalizer for a given `Entity`.");
+        this.finalizer = finalizer;
+    }
+
+    protected override onDestroy() {
+        if (this.finalizer !== null) {
+            this.finalizer();
+        }
+    }
+
+    override toString() {
+        return `Entity(${this.debug_name})`;
     }
 }

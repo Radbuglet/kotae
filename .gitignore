@@ -1,7 +1,11 @@
 # IDE configs
+.DS_Store
 .vscode/
 .idea/
 *.iml
+
+# Scratchpad
+/scratchpad/
 
 # Logs
 logs
