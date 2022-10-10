@@ -2,11 +2,19 @@ import { IrBlock, IrBoard, IrFrame, IrLine, LayoutFrame } from "kotae-common";
 import { Entity, IterExt } from "kotae-util";
 import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
+import "../../styles/Frame.css"
+import Moveable from "react-moveable";
 
 
 export function FrameView({ target }: EntityViewProps) {
     const target_ir = target.get(IrFrame.KEY);
     const lines = useListenable(target_ir.lines);
+    const frameRef = React.useRef<HTMLDivElement>(null);
+    const handleRef = React.useRef<HTMLDivElement>(null);
+
+    const target_frame = target.get(LayoutFrame.KEY);
+    const pos = useListenable(target_frame.position);
+
 
     const doDestroy = wrapWeakReceiver(target, target => {
         target.destroy();
@@ -22,22 +30,76 @@ export function FrameView({ target }: EntityViewProps) {
         target_ir.lines.push(line);
     });
 
-    return <div className=""
-	style={{
-	    position: "absolute",
-	    transform: `translate(${
-		target_ir.parent.get(LayoutFrame.KEY).position.value[0]
-	    }px, ${
-		target_ir.parent.get(LayoutFrame.KEY).position.value[1]
-	    }px)`,
-	}}
-    >
-	<p>Lines: 
-	<button onClick={doAddLine}> Add Line </button> <button onClick={doDestroy}> Destroy </button> </p>
-	{lines.map(
-	    line => <LineView key={line.part_id} target={line} />,
-	)}
-    </div>
+    return <>
+	<div className="frame"
+	    ref={frameRef}
+	    style={{
+		position: "absolute",
+		transform: `translate(${pos[0]}px, ${pos[1]}px)`,
+	    }}
+	>
+	<div className="bg-matcha-300"
+	    ref={handleRef}
+	>
+	    the handle!
+	</div>
+	    <div
+		contentEditable={true}
+	    >
+	    FRAME
+	    </div>
+	    {/*<p>Lines: 
+	       <button onClick={doAddLine}> Add Line </button> <button onClick={doDestroy}> Destroy </button> 
+	       </p>*/}
+	    {lines.map(
+		line => <LineView key={line.part_id} target={line} />,
+	    )}
+	</div>
+
+
+
+	<Moveable
+	    target={frameRef}
+	    keepRatio={false}
+	    draggable={true}
+	    container={null}
+	    origin={false}
+	    hideDefaultLines={true}
+	    throttleDrag={0}
+	    edge={true}
+	    dragTarget={handleRef.current}
+	    //stopPropagation={true}
+
+	    onDrag={({
+		target,
+		beforeDelta, beforeDist,
+		left, top,
+		right, bottom,
+		delta, dist,
+		transform,
+		clientX, clientY,
+	    }: OnDrag) => {
+
+		// this is intentionally bad!
+		// until a better solution is found by @david.
+		let v = transform
+		v = v.replace("translate(", "")
+		v = v.replace(")", "")
+		v = v.replace(/px/g, "").split(",")
+
+		// TODO migh be better to only have this set onDragEnd,
+		// but for now I set it every tick you move (thus rerendering).
+		target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
+	    }}
+	/>
+
+
+
+
+
+
+	
+    </>
 }
 
 
