@@ -3,7 +3,8 @@
     "workspaces": [
         "src/common",
         "src/util",
-        "src/web"
+        "src/web",
+	"src/math"
     ],
     "devDependencies": {
         "process": "^0.11.10"
