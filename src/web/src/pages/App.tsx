@@ -3,7 +3,7 @@ import { Entity } from 'kotae-util';
 import * as React from 'react';
 import '../../styles/App.css';
 import Board from './Board';
-import { AppRoot } from './demo';
+import { AppRoot } from './AppRoot';
 
 export default function App() {
 	const [board, _] = React.useState(() => {
@@ -19,7 +19,6 @@ export default function App() {
 	return (
 		<div className="App">
 			<AppRoot target={board} />
-			<Board />
 		</div>
 	);
 }
