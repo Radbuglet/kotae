@@ -39,7 +39,9 @@ export function BoardView({ target }: EntityViewProps) {
 	    frame_layout.destroy();
             frame_ir.destroy();
         });
-        target_ir.frames.add(frame);
+        target_ir.frames.add(frame); // TODO this adds it in the wrong place
+	// it needs to be offset so that the cursor is over the text box,
+	// not on the top left.
     })
 
     return (

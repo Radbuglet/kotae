@@ -47,25 +47,17 @@ export function FrameView({ target }: EntityViewProps) {
 		transform: `translate(${pos[0]}px, ${pos[1]}px)`,
 	    }}
 	>
-	<div className="bg-matcha-300"
+
+	{/* CONTROLS */}
+	<div className="frame-controls"
 	    ref={handleRef}
 	>
-	    the handle!
+	    ::
 	</div>
-	    <div
-		//contentEditable={true}
-	    >
-	    FRAME
-	    </div>
-	    {/*<p>Lines: 
-	       <button onClick={doAddLine}> Add Line </button> <button onClick={doDestroy}> Destroy </button> 
-	       </p>*/}
 	    {lines.map(
 		line => <LineView key={line.part_id} target={line} />,
 	    )}
 	</div>
-
-
 
 	<Moveable
 	    target={frameRef}
@@ -108,13 +100,6 @@ export function FrameView({ target }: EntityViewProps) {
 	    }}
 
 	/>
-
-
-
-
-
-
-	
     </>
 }
 
@@ -171,11 +156,11 @@ export function BlockView({ target }: EntityViewProps) {
 	blockRef.current.focus()
     }, [])
 
-    return <div className="border-2 border-red-500 min-w-5"
+    // TEMP BLOCK
+    return <div className="outline-none"
 	contentEditable={true}
 	ref={blockRef}
     >
-
     </div>;
 }
 

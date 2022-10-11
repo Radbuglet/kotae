@@ -6,8 +6,23 @@
 
     transition: border 0.3s;
     transition: transform 0;
+    min-width: 3rem;
 }
 
 .frame:hover {
     border: 1px solid lightBlue;
+}
+
+
+.frame-controls {
+    position: absolute;
+    left: -20px;
+    opacity: 0;
+    transition: 0.3s;
+
+}
+
+.frame:hover .frame-controls {
+    /*display: block;*/
+    opacity: 1;
 }
