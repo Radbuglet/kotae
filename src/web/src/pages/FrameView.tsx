@@ -50,9 +50,17 @@ export function FrameView({ target }: EntityViewProps) {
 
 	{/* CONTROLS */}
 	<div className="frame-controls"
-	    ref={handleRef}
 	>
+	    <div ref={handleRef}
+	    >
 	    ::
+	    </div>
+
+	    <div
+		onClick={doDestroy}
+	    >
+	    x
+	    </div>
 	</div>
 	    {lines.map(
 		line => <LineView key={line.part_id} target={line} />,
