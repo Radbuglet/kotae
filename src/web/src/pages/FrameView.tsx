@@ -30,6 +30,15 @@ export function FrameView({ target }: EntityViewProps) {
         target_ir.lines.push(line);
     });
 
+
+    let init: Boolean = true; 
+    React.useEffect(() => {
+	if (init) {
+	    doAddLine() // for some reason this is getting called twice?
+	    init = false;
+	}
+    }, [])
+
     return <>
 	<div className="frame"
 	    ref={frameRef}
@@ -44,7 +53,7 @@ export function FrameView({ target }: EntityViewProps) {
 	    the handle!
 	</div>
 	    <div
-		contentEditable={true}
+		//contentEditable={true}
 	    >
 	    FRAME
 	    </div>
@@ -79,18 +88,25 @@ export function FrameView({ target }: EntityViewProps) {
 		transform,
 		clientX, clientY,
 	    }: OnDrag) => {
-
-		// this is intentionally bad!
-		// until a better solution is found by @david.
-		let v = transform
-		v = v.replace("translate(", "")
-		v = v.replace(")", "")
-		v = v.replace(/px/g, "").split(",")
-
-		// TODO migh be better to only have this set onDragEnd,
-		// but for now I set it every tick you move (thus rerendering).
-		target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
+		target!.style.transform = transform;
 	    }}
+
+
+	    onDragEnd={(e) => {
+		if (e.isDrag) {
+		    // this is intentionally bad!
+		    // until a better solution is found by @david.
+		    let v = e.lastEvent.transform
+		    v = v.replace("translate(", "")
+		    v = v.replace(")", "")
+		    v = v.replace(/px/g, "").split(",")
+
+		    // TODO migh be better to only have this set onDragEnd,
+		    // but for now I set it every tick you move (thus rerendering).
+		    target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
+		}
+	    }}
+
 	/>
 
 
@@ -120,6 +136,14 @@ export function LineView({ target }: EntityViewProps) {
         target_ir.blocks.push(block);
     });
 
+    let init: Boolean = true; 
+    React.useEffect(() => {
+	if (init) {
+	    doAddBlock() // for some reason this is getting called twice?
+	    init = false;
+	}
+    }, [])
+
     const doMerge = (rel: "prev" | "next") => {
         if (!target_ir.is_alive) return;
 
@@ -128,8 +152,8 @@ export function LineView({ target }: EntityViewProps) {
     };
 
     return <div className="">
-        <h2> Line (ID: {target.part_id}) </h2>
         <p>
+	    
         </p>
         {blocks.map(
             block => <BlockView key={block.part_id} target={block} />,
@@ -138,13 +162,20 @@ export function LineView({ target }: EntityViewProps) {
 }
 
 export function BlockView({ target }: EntityViewProps) {
+    const blockRef = React.useRef<HTMLDivElement>(null);
     const doDestroy = wrapWeakReceiver(target, target => {
         target.destroy();
     });
 
-    return <div className={DemoClasses["container"]}>
-        <h2> Block  (ID: {target.part_id}) </h2>
-        <p> <button onClick={doDestroy}> Destroy </button> </p>
+    React.useEffect(() => {
+	blockRef.current.focus()
+    }, [])
+
+    return <div className="border-2 border-red-500 min-w-5"
+	contentEditable={true}
+	ref={blockRef}
+    >
+
     </div>;
 }
 
