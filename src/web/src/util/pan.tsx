@@ -199,26 +199,23 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 	}
 
 	override render() {
+		const { viewport_props, overflow_props, container_props, children } = this.props;
+
 		const overflow_styles = this.computeOverflowStyles();
 		const container_styles: React.CSSProperties = {
 			transform: this.computeViewportTransformStr(),
 		};
 
+		let viewportClassName = `${PanClasses["viewport"]} ${PanClasses["hide-scrollbars"]}`;
+		if (viewport_props !== undefined && viewport_props.className !== undefined) {
+			viewportClassName += ` ${viewport_props.className}`;
+		}
+
 		return <div
 			// viewport
+			{...viewport_props}
 			ref={this.viewport_ref}
-		    className={`
-			border-2 border-purple-500
-			bg-red-500 
-
-			${this.props.viewport_props !== undefined? 
-				    this.props.viewport_props["className"] : 
-			""} 
-			${PanClasses["viewport"]} 
-			${PanClasses["hide-scrollbars"]}
-		    `}
-
-
+			className={viewportClassName}
 			onScroll={() => {
 				const viewport = this.viewport;
 
@@ -237,23 +234,22 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 					this.recenter();
 				}
 			}}
-			{...this.props.viewport_props}
 		>
 			<div
 				// overflow
+				{...overflow_props}
 				ref={this.overflow_ref}
 				className={PanClasses["overflow"]}
 				style={overflow_styles}
-				{...this.props.overflow_props}
 			>
 				<div
 					// container
+					{...container_props}
 					ref={this.container_ref}
 					className={PanClasses["container"]}
 					style={container_styles}
-					{...this.props.container_props}
 				>
-					{this.props.children}
+					{children}
 				</div>
 			</div>
 		</div>;

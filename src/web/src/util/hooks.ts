@@ -18,14 +18,17 @@ export function useListenable<T>(target: IListenable<T>): T {
 	);
 }
 
-export function useInit(f: () => void) { // TODO hack! need a more idiomatic way to do this.
-    let init = true;
-    useEffect(() => {
-        if (init) {
-            f();
-            init = false;
-        }
-    }, []);
+export function useInit<T>(f: () => void) {
+	// N.B. this hack ensures that React strict mode can only call this closure once.
+	// TODO hack! need a more idiomatic way to do this.
+
+	let init = true;
+	useEffect(() => {
+		if (init) {
+			f();
+			init = false;
+		}
+	}, []);
 }
 
 export function wrapWeakReceiver<T extends Bindable, A extends readonly unknown[]>(
