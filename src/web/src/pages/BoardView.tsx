@@ -4,7 +4,7 @@ import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
 import { FrameView } from "./FrameView";
 import { PanAndZoom } from "../util/pan";
-import { ReadonlyVec2, vec2 } from "gl-matrix";
+import { vec2 } from "gl-matrix";
 
 export function BoardView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrBoard.KEY);

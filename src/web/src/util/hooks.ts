@@ -18,6 +18,8 @@ export function useListenable<T>(target: IListenable<T>): T {
 	);
 }
 
+// FIXME: Don't `useInit`. If you don't remember why this is a terrible idea next morning, you
+// clearly need more sleep.
 export function useInit<T>(f: () => void) {
 	// N.B. this hack ensures that React strict mode can only call this closure once.
 	// TODO hack! need a more idiomatic way to do this.
