@@ -2,8 +2,10 @@ import { IrBoard } from 'kotae-common';
 import { Entity } from 'kotae-util';
 import * as React from 'react';
 import '../../styles/App.css';
-import Board from './Board';
-import { AppRoot } from './AppRoot';
+import "../../styles/Board.css"
+import "../../styles/Background.css"
+
+import { BoardView } from './BoardView';
 
 export default function App() {
 	const [board, _] = React.useState(() => {
@@ -16,9 +18,11 @@ export default function App() {
 		return board;
 	});
 
-	return (
-		<div className="App">
-			<AppRoot target={board} />
-		</div>
-	);
+	return <>
+        <div className="bg-matcha-normal the_background">
+            <div className="board">
+                <BoardView target={board} />
+            </div>
+        </div>
+    </>;
 }
