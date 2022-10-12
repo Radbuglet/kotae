@@ -5,6 +5,9 @@ import { EntityViewProps, useListenable, wrapWeakReceiver, useInit } from "../ut
 import "../../styles/Frame.css"
 import Moveable from "react-moveable";
 
+import { MdDragIndicator } from "react-icons/md";
+import { RiDeleteBackLine } from "react-icons/ri";
+
 
 export function FrameView({ target }: EntityViewProps) {
     const target_ir = target.get(IrFrame.KEY);
@@ -29,7 +32,6 @@ export function FrameView({ target }: EntityViewProps) {
         });
         target_ir.lines.push(line);
     });
-
 
 
     useInit(() => {
@@ -63,17 +65,10 @@ export function FrameView({ target }: EntityViewProps) {
 	    return false;
 	};
 
-	//console.log(isEmpty(target_ir))
 
 	if (isEmpty(target_ir)) {
 	    doDestroy()
-	    console.log("it's empty!")
 	}
-
-
-	//if (target_ir.lines.length === 1 && target_ir.lines[0].get(IrLine.KEY).text.value === "") {
-	    //doDestroy()
-	//}
 	
     });
 
@@ -90,16 +85,18 @@ export function FrameView({ target }: EntityViewProps) {
 	    {/* CONTROLS */}
 	    <div className="frame-controls"
 	    >
-		<div ref={handleRef}
-		>
-		    ::
-		</div>
-
 		<div
 		    onClick={doDestroy}
+		    className="control"
 		>
-		    x
+		    <RiDeleteBackLine />
 		</div>
+		<div ref={handleRef}
+		    className="control"
+		>
+		    <MdDragIndicator />
+		</div>
+
 	    </div>
 
 	    {lines.map(
@@ -206,7 +203,7 @@ export function TextBlockView({ target }: EntityViewProps) {
 	blockRef.current.focus()
     }, [])
 
-    // TEMP BLOCK
+    // TEMP TEXT BLOCK
     return <div
 	className="outline-none"
 	ref={blockRef}
@@ -218,11 +215,5 @@ export function TextBlockView({ target }: EntityViewProps) {
     >
 	{text}
     </div>;
-
-    /*<div className="outline-none"
-	contentEditable={true}
-	ref={blockRef}
-    >
-    </div>;*/
 }
 

@@ -61,7 +61,8 @@ export function BoardView({ target }: EntityViewProps) {
 
 		ref={pan_and_zoom}
 		viewport_props={{
-		    style: { width: "100%", height: "90vh", border: "1px solid" },
+		    className: "bg-matcha-paper",
+		    style: { width: "100%", height: "90vh"},
 		    onClick: handleClick,
 		}}
 	    >
