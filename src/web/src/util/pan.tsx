@@ -1,6 +1,7 @@
 import * as React from "react";
 import { mat3, ReadonlyMat3, ReadonlyVec2, vec2 } from "gl-matrix";
 import PanClasses from "./pan.module.css";
+import "../../styles/index.css"
 
 //> Helpers
 function approxEq(a: number, b: number) {
@@ -206,7 +207,18 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 		return <div
 			// viewport
 			ref={this.viewport_ref}
-			className={`${PanClasses["viewport"]} ${PanClasses["hide-scrollbars"]}`}
+		    className={`
+			border-2 border-purple-500
+			bg-red-500 
+
+			${this.props.viewport_props !== undefined? 
+				    this.props.viewport_props["className"] : 
+			""} 
+			${PanClasses["viewport"]} 
+			${PanClasses["hide-scrollbars"]}
+		    `}
+
+
 			onScroll={() => {
 				const viewport = this.viewport;
 

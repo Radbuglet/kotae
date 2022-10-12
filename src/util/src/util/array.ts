@@ -20,10 +20,6 @@ export const ArrayExt = new class {
 };
 
 export const IterExt = new class {
-    first<T>() {
-
-    }
-
     any<T>(iter: Iterable<T>, predicate: (value: T) => boolean): boolean {
         for (const val of iter) {
             if (predicate(val)) {
@@ -40,6 +36,13 @@ export const IterExt = new class {
     *map<T, R>(iter: Iterable<T>, map: (value: T) => R): IterableIterator<R> {
         for (const elem of iter) {
             yield map(elem);
+        }
+    }
+
+    *enumerate<T>(iter: Iterable<T>): IterableIterator<readonly [T, number]> {
+        let i = 0;
+        for (const elem of iter) {
+            yield [elem, i++];
         }
     }
 

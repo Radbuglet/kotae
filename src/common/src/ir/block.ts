@@ -18,15 +18,6 @@ export class IrBlock extends Part {
     }
 }
 
-export const IrBlockKind = new TypedKey<IrBlockKind>("IrBlockKind");
-
-export interface IrBlockKind {
-    readonly uuid: string;
-    readonly friendly_name: string;
-
-    construct(parent_line_ir: IrLine): Entity;
-}
-
 export class BlockRegistry extends Part {
     static readonly KEY = new TypedKey<BlockRegistry>("BlockRegistry");
 
@@ -47,4 +38,13 @@ export class BlockRegistry extends Part {
             kind.destroy();
         }
     }
+}
+
+export const IrBlockKind = new TypedKey<IrBlockKind>("IrBlockKind");
+
+export interface IrBlockKind {
+    readonly uuid: string;
+    readonly friendly_name: string;
+
+    construct(parent_line_ir: IrLine): Entity;
 }

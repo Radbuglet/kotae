@@ -6,12 +6,13 @@
     "@tiptap/react": "^2.0.0-beta.199",
     "@tiptap/starter-kit": "^2.0.0-beta.199",
     "@tiptap/suggestion": "^2.0.0-beta.199",
+    "gl-matrix": "^3.4.3",
     "kotae-common": "file:../common",
     "kotae-util": "file:../util",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-moveable": "^0.39.3",
-    "gl-matrix": "^3.4.3"
+    "react-icons": "^4.4.0",
+    "react-moveable": "^0.39.3"
   },
   "devDependencies": {
     "@types/react": "^18.0.21",

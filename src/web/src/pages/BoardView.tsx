@@ -58,13 +58,13 @@ export function BoardView({ target }: EntityViewProps) {
 			pan_and_zoom.current.zoom += 1
 			}}>sss</button>
 			<PanAndZoom
-
-			ref={pan_and_zoom}
-			viewport_props={{
-				style: { width: "100%", height: "90vh", border: "1px solid", position: "relative" },
-				onClick: handleClick,
-			}}
-			>
+		ref={pan_and_zoom}
+		viewport_props={{
+		    className: "bg-matcha-paper",
+		    style: { width: "100%", height: "90vh"},
+		    onClick: handleClick,
+		}}
+	    >
 
 			{Array.from(frames.values()).map(
 				frame => <FrameView key={frame.part_id} target={frame} />)

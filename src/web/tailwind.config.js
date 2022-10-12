@@ -22,6 +22,8 @@ module.exports = {
 		    'light': "#c0cfb2",
 		    'paper': "#F6F4EE",
 		    'ink': "#3C3B44",
+		    'light-ink': "#70707C",
+                    'highlight': "#DFDCD6",
 		},
 	    },
 	},
