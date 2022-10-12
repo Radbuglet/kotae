@@ -51,7 +51,7 @@ export class SignalConnection<F> extends Part {
     }
 }
 
-//> IListenValueSnapshot
+//> IListenable
 export interface IListenable<T> {
     readonly on_changed: ISubscribeOnlySignal<() => void>;
     readonly value: T;
