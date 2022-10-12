@@ -48,30 +48,30 @@ export function BoardView({ target }: EntityViewProps) {
     })
 
     return (
-	<>
-	    <div className="border-2 border-matcha-500" style={{
-		width: "min-content"
-		}}>
-		hiiiiiiiiiii
-	    </div>
-	    <button className="border-2 border-red-500" onClick={() => {
-		pan_and_zoom.current.zoom += 1
-	    }}>sss</button>
-	    <PanAndZoom
+		<div className="bg-white">
+			<div className="border-2 border-matcha-500" style={{
+			width: "min-content"
+			}}>
+			hiiiiiiiiiii
+			</div>
+			<button className="border-2 border-red-500" onClick={() => {
+			pan_and_zoom.current.zoom += 1
+			}}>sss</button>
+			<PanAndZoom
 
-		ref={pan_and_zoom}
-		viewport_props={{
-		    style: { width: "100%", height: "90vh", border: "1px solid" },
-		    onClick: handleClick,
-		}}
-	    >
+			ref={pan_and_zoom}
+			viewport_props={{
+				style: { width: "100%", height: "100vh", border: "1px solid" },
+				onClick: handleClick,
+			}}
+			>
 
-		{Array.from(frames.values()).map(
-		    frame => <FrameView key={frame.part_id} target={frame} />)
-		}
+			{Array.from(frames.values()).map(
+				frame => <FrameView key={frame.part_id} target={frame} />)
+			}
 
-	    </PanAndZoom>
-	</>
+			</PanAndZoom>
+		</div>
     )
 }
 
