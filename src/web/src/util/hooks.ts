@@ -1,5 +1,5 @@
 import { Bindable, callFunc, Entity, IListenable, Weak } from "kotae-util";
-import { useSyncExternalStore, useState } from "react";
+import { useSyncExternalStore, useEffect } from "react";
 
 export type EntityViewProps = Readonly<{ target: Entity }>;
 
@@ -18,10 +18,14 @@ export function useListenable<T>(target: IListenable<T>): T {
 	);
 }
 
-export function useInit(f: () => void) {
-    React.useState(() => {
-        f();
-    });
+export function useInit(f: () => void) { // TODO hack! need a more idiomatic way to do this.
+    let init = true;
+    useEffect(() => {
+        if (init) {
+            f();
+            init = false;
+        }
+    }, []);
 }
 
 export function wrapWeakReceiver<T extends Bindable, A extends readonly unknown[]>(
