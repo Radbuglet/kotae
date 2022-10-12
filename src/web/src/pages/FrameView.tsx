@@ -1,4 +1,4 @@
-import { IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock } from "kotae-common";
+import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock } from "kotae-common";
 import { Entity } from "kotae-util";
 import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver, useInit } from "../util/hooks";
@@ -8,6 +8,7 @@ import type { OnDrag } from "react-moveable";
 
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
+import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../blocks/registry";
 
 export function FrameView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrFrame.KEY);
@@ -39,7 +40,7 @@ export function FrameView({ target }: EntityViewProps) {
 
 	const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
 		const isEmpty = (target_ir: IrFrame) => {
-
+			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]`
 			if (target_ir.lines.length > 1) return false;
 
 			const first_line = target_ir.lines.value[0];
@@ -55,7 +56,6 @@ export function FrameView({ target }: EntityViewProps) {
 			}
 
 			const first_block_text = first_block.tryGet(TextBlock.KEY);
-			console.log(first_block_text)
 
 			if (first_block_text !== undefined && first_block_text.text.value === "") {
 				return true;
@@ -68,7 +68,6 @@ export function FrameView({ target }: EntityViewProps) {
 		if (isEmpty(target_ir)) {
 			doDestroy()
 		}
-
 	});
 
 	return <>
@@ -117,12 +116,7 @@ export function FrameView({ target }: EntityViewProps) {
 
 			onDrag={({
 				target,
-				beforeDelta, beforeDist,
-				left, top,
-				right, bottom,
-				delta, dist,
 				transform,
-				clientX, clientY,
 			}: OnDrag) => {
 				target!.style.transform = transform;
 			}}
@@ -132,12 +126,12 @@ export function FrameView({ target }: EntityViewProps) {
 				if (e.isDrag) {
 					// this is intentionally bad!
 					// until a better solution is found by @david.
-					let v = e.lastEvent.transform
-					v = v.replace("translate(", "")
-					v = v.replace(")", "")
-					v = v.replace(/px/g, "").split(",")
+					let v = e.lastEvent.transform;
+					v = v.replace("translate(", "");
+					v = v.replace(")", "");
+					v = v.replace(/px/g, "").split(",");
 
-					// TODO migh be better to only have this set onDragEnd,
+					// TODO might be better to only have this set onDragEnd,
 					// but for now I set it every tick you move (thus rerendering).
 					target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
 				}
@@ -151,24 +145,15 @@ export function LineView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrLine.KEY);
 	const blocks = useListenable(target_ir.blocks);
 
-	const doDestroy = wrapWeakReceiver(target, target => {
-		target.destroy();
-	});
-
-	const doAddBlock = wrapWeakReceiver(target_ir, target_ir => {
-		const block = new Entity(target_ir, "block");
-		const block_ir = block.add(new IrBlock(block, null!), [IrBlock.KEY]);  // FIXME
-		const block_text = block.add(new TextBlock(block), [TextBlock.KEY]);
-		//block_text.text.value = "Whee";
-		block.setFinalizer(() => {
-			block_ir.destroy();
-			block_text.destroy();
-		});
-		target_ir.blocks.push(block);
-	});
-
 	useInit(() => {
-		doAddBlock()
+		// TODO: Remove; this is just temp code
+
+		// Get the first block kind we registered
+		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[0]!;
+
+		// Construct a new block through its factory and add it to the line.
+		const block = kind.get(BLOCK_FACTORY_KEY)(target_ir);
+		target_ir.blocks.push(block);
 	});
 
 	const doMerge = (rel: "prev" | "next") => {
@@ -178,40 +163,14 @@ export function LineView({ target }: EntityViewProps) {
 		frame_ir.mergeLines(frame_ir.lines.indexOf(target), rel);
 	};
 
-	return <div className="">
-		<p>
-
-		</p>
+	return <div>
 		{blocks.map(
-			block => <TextBlockView key={block.part_id} target={block} />,
+			block => {
+				const block_ir = block.get(IrBlock.KEY);
+				const KindView = block_ir.kind.get(BLOCK_VIEW_KEY);
+
+				return <KindView target={block} />;
+			},
 		)}
 	</div>;
 }
-
-export function TextBlockView({ target }: EntityViewProps) {
-	const target_ir = target.get(TextBlock.KEY);
-	const text = useListenable(target_ir.text);
-
-	const blockRef = React.useRef<HTMLDivElement>(null);
-	const doDestroy = wrapWeakReceiver(target, target => {
-		target.destroy();
-	});
-
-	React.useEffect(() => {
-		blockRef.current!.focus();
-	}, [])
-
-	// TEMP TEXT BLOCK
-	return <div
-		className="outline-none"
-		ref={blockRef}
-		contentEditable={true}
-		onBlur={(e) => {
-			target_ir.text.value = e.currentTarget.innerText
-		}}
-
-	>
-		{text}
-	</div>;
-}
-
