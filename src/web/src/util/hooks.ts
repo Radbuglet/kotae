@@ -1,5 +1,5 @@
 import { Bindable, callFunc, Entity, IListenable, Weak } from "kotae-util";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useState } from "react";
 
 export type EntityViewProps = Readonly<{ target: Entity }>;
 
@@ -16,6 +16,12 @@ export function useListenable<T>(target: IListenable<T>): T {
 		},
 		() => target.value_snapshot,
 	);
+}
+
+export function useInit(f: () => void) {
+    React.useState(() => {
+        f();
+    });
 }
 
 export function wrapWeakReceiver<T extends Bindable, A extends readonly unknown[]>(
