@@ -1,7 +1,7 @@
-import { IrBlock, IrBoard, IrFrame, IrLine, LayoutFrame } from "kotae-common";
+import { IrBlock, IrBoard, IrFrame, IrLine, LayoutFrame, TextBlock } from "kotae-common";
 import { Entity, IterExt } from "kotae-util";
 import * as React from "react";
-import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
+import { EntityViewProps, useListenable, wrapWeakReceiver, useInit } from "../util/hooks";
 import "../../styles/Frame.css"
 import Moveable from "react-moveable";
 
@@ -31,13 +31,51 @@ export function FrameView({ target }: EntityViewProps) {
     });
 
 
-    let init: Boolean = true; 
-    React.useEffect(() => {
-	if (init) {
-	    doAddLine() // for some reason this is getting called twice?
-	    init = false;
+
+    useInit(() => {
+	doAddLine()
+    })
+
+    const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
+	const isEmpty = (target_ir: IrFrame) => {
+
+	    if (target_ir.lines.length > 1) return false;
+
+	    const first_line = target_ir.lines.value[0];
+
+	    if (first_line === undefined) {
+		return true;
+	    }
+
+	    const first_block = first_line.get(IrLine.KEY).blocks.value[0];
+	    
+	    if (first_block === undefined) {
+		return true;
+	    }
+
+	    const first_block_text = first_block.tryGet(TextBlock.KEY);
+	    console.log(first_block_text)
+
+    	    if (first_block_text !== undefined && first_block_text.text.value === "") {
+		return true;
+	    }
+	    
+	    return false;
+	};
+
+	//console.log(isEmpty(target_ir))
+
+	if (isEmpty(target_ir)) {
+	    doDestroy()
+	    console.log("it's empty!")
 	}
-    }, [])
+
+
+	//if (target_ir.lines.length === 1 && target_ir.lines[0].get(IrLine.KEY).text.value === "") {
+	    //doDestroy()
+	//}
+	
+    });
 
     return <>
 	<div className="frame"
@@ -46,22 +84,24 @@ export function FrameView({ target }: EntityViewProps) {
 		position: "absolute",
 		transform: `translate(${pos[0]}px, ${pos[1]}px)`,
 	    }}
+	    onBlur={handleBlur}
 	>
 
-	{/* CONTROLS */}
-	<div className="frame-controls"
-	>
-	    <div ref={handleRef}
+	    {/* CONTROLS */}
+	    <div className="frame-controls"
 	    >
-	    ::
+		<div ref={handleRef}
+		>
+		    ::
+		</div>
+
+		<div
+		    onClick={doDestroy}
+		>
+		    x
+		</div>
 	    </div>
 
-	    <div
-		onClick={doDestroy}
-	    >
-	    x
-	    </div>
-	</div>
 	    {lines.map(
 		line => <LineView key={line.part_id} target={line} />,
 	    )}
@@ -123,19 +163,18 @@ export function LineView({ target }: EntityViewProps) {
     const doAddBlock = wrapWeakReceiver(target_ir, target_ir => {
         const block = new Entity(target_ir, "block");
         const block_ir = block.add(new IrBlock(block, null!), [IrBlock.KEY]);  // FIXME
+	const block_text = block.add(new TextBlock(block), [TextBlock.KEY]);
+	//block_text.text.value = "Whee";
         block.setFinalizer(() => {
             block_ir.destroy();
+	    block_text.destroy();
         });
         target_ir.blocks.push(block);
     });
 
-    let init: Boolean = true; 
-    React.useEffect(() => {
-	if (init) {
-	    doAddBlock() // for some reason this is getting called twice?
-	    init = false;
-	}
-    }, [])
+    useInit(() => {
+	doAddBlock()
+    });
 
     const doMerge = (rel: "prev" | "next") => {
         if (!target_ir.is_alive) return;
@@ -149,12 +188,15 @@ export function LineView({ target }: EntityViewProps) {
 	    
         </p>
         {blocks.map(
-            block => <BlockView key={block.part_id} target={block} />,
+            block => <TextBlockView key={block.part_id} target={block} />,
         )}
     </div>;
 }
 
-export function BlockView({ target }: EntityViewProps) {
+export function TextBlockView({ target }: EntityViewProps) {
+    const target_ir = target.get(TextBlock.KEY);
+    const text = useListenable(target_ir.text);
+
     const blockRef = React.useRef<HTMLDivElement>(null);
     const doDestroy = wrapWeakReceiver(target, target => {
         target.destroy();
@@ -165,10 +207,22 @@ export function BlockView({ target }: EntityViewProps) {
     }, [])
 
     // TEMP BLOCK
-    return <div className="outline-none"
+    return <div
+	className="outline-none"
+	ref={blockRef}
+	contentEditable={true}
+	onBlur={(e) => {
+	    target_ir.text.value = e.currentTarget.innerText
+	}}
+
+    >
+	{text}
+    </div>;
+
+    /*<div className="outline-none"
 	contentEditable={true}
 	ref={blockRef}
     >
-    </div>;
+    </div>;*/
 }
 
