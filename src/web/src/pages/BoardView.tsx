@@ -5,16 +5,25 @@ import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks"
 import { FrameView } from "./FrameView";
 import { PanAndZoom } from "../util/pan";
 import { vec2 } from "gl-matrix";
+import Selecto from "react-selecto";
+import Moveable from "react-moveable";
 
 export function BoardView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrBoard.KEY);
 	const frames = useListenable(target_ir.frames);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
 
+	const [selectedFrames, setSelectedFrames] = React.useState([]);
+	const [scrollOptions, setScrollOptions] = React.useState({});
+	const moveableRef = React.useRef(null);
+	const selectoRef = React.useRef(null);
+
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
 		const paz = pan_and_zoom.current!;
 		if (!paz.isHelperElement(e.target)) return;
+
+		if (e.altKey) return; // if we are selecting, don't create a new frame
 
 		const bb = paz.viewport.getBoundingClientRect();
 		const pos: vec2 = [
@@ -39,6 +48,22 @@ export function BoardView({ target }: EntityViewProps) {
 		target_ir.frames.add(frame);
 	})
 
+
+	React.useEffect(() => {
+	    setScrollOptions({
+		container: pan_and_zoom.current,
+		//getScrollPosition: () => {
+		//    return [
+		//        pan_and_zoom.current.getScrollLeft(),
+		//        pan_and_zoom.current.getScrollTop(),
+		//    ];
+		//},
+		throttleTime: 30,
+		threshold: 0,
+	    });
+	}, []);
+
+
 	return (
 		<div className="bg-white">
 			<button className="border-2 border-red-500" onClick={() => {
@@ -58,10 +83,114 @@ export function BoardView({ target }: EntityViewProps) {
 					onClick: handleClick,
 				}}
 			>
+
+			    <Moveable
+				ref={moveableRef}
+				draggable={true}
+				target={selectedFrames}
+				onClickGroup={e => {
+				    selectoRef.current.clickTarget(e.inputEvent, e.inputTarget);
+				}}
+				onDrag={e => {
+				    e.target.style.transform = e.transform;
+				}}
+				onDragGroup={e => {
+				    e.events.forEach(ev => {
+					ev.target.style.transform = ev.transform;
+				    });
+				}}
+
+				onDragEnd={e => {
+				    //console.log(e, "the end")
+				    //console.log(e.target[Object.keys(e.target)[1]])
+				    //console.log(e.target.dataset.entityId)
+				    
+				    if (e.isDrag) {
+					// this is intentionally bad!
+					// until a better solution is found by @david.
+					let v = e.lastEvent.transform;
+					v = v.replace("translate(", "");
+					v = v.replace(")", "");
+					v = v.replace(/px/g, "").split(",");
+
+					// TODO might be better to only have this set onDragEnd,
+					// but for now I set it every tick you move (thus rerendering).
+					const target_frame = Entity.entityFromId(e.target.dataset.entityId)
+					target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
+				    }
+
+				}}
+
+				onDragGroupEnd={e => {
+				    //e.events.forEach(ev => {
+				    //    ev.target.style.transform = ev.transform;
+				    //});
+				}}
+			    ></Moveable>
+
+
+
+
+
+
 				{Array.from(frames.values()).map(
-					frame => <FrameView key={frame.part_id} target={frame} />
+					frame => <FrameView 
+					    key={frame.part_id} target={frame} 
+					    //id={frame.part_id}
+					    />
 				)}
 			</PanAndZoom>
+
+		    <Selecto
+			ref={selectoRef}
+			scrollOptions={scrollOptions}
+			dragContainer={".bg-matcha-paper"}
+			selectableTargets={[".frame"]}
+			hitRate={0} // might be better at 100. play around with this TODO
+			selectByClick={false}
+			selectFromInside={true}
+			toggleContinueSelect={["shift"]}
+			ratio={0}
+
+			dragCondition={e => {
+			    // TODO we need to think about the right thing here -- this is just temp.
+			    // could / should be a mode on the sidebar
+			    return e.inputEvent.altKey; // only drag if we have the alt key pressed
+			}}
+
+			onDragStart={e => {
+			    //console.log("onDrag", e, pan_and_zoom.current.getScrollTop());
+			    console.log(e, "asdf")
+			    const moveable = moveableRef.current;
+			    const target = e.inputEvent.target;
+			    // no idea what this is:
+			    if (
+				moveable.isMoveableElement(target)
+				    || selectedFrames.some(t => t === target || t.contains(target))
+			    ) {
+				console.log("stoppin")
+				e.stop();
+			    }
+			}}
+			
+			onSelect={e => {
+			    console.log(e, "selecting!")
+			    setSelectedFrames(e.selected);
+			}}
+
+			// or what this does. oh well!
+			onSelectEnd={e => {
+			    const moveable = moveableRef.current;
+			    if (e.isDragStart) {
+				e.inputEvent.preventDefault();
+
+				setTimeout(() => {
+				    moveable.dragStart(e.inputEvent);
+				});
+			    }
+			}}
+		    ></Selecto>
+
 		</div>
 	)
 }

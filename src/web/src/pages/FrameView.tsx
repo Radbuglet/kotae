@@ -64,7 +64,6 @@ export function FrameView({ target }: EntityViewProps) {
 			return false;
 		};
 
-
 		if (isEmpty(target_ir)) {
 			doDestroy()
 		}
@@ -72,6 +71,7 @@ export function FrameView({ target }: EntityViewProps) {
 
 	return <>
 		<div className="frame"
+		        data-entity-id={target.part_id}
 			ref={frameRef}
 			style={{
 				position: "absolute",
