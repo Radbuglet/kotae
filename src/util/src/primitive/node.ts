@@ -7,8 +7,6 @@ import { IRawKey, IReadKey, IWriteKey } from "./key";
 //> Bindable
 export const UNSAFE_BINDABLE_BACKING = Symbol("UNSAFE_BINDABLE_BACKING");
 
-const DBG_ALIVE_SET = (window as any)["dbg_alive_set"] = new Set<Bindable>();
-
 export type Weak<T extends Bindable> =
     ({ readonly is_alive: false, readonly [UNSAFE_BINDABLE_BACKING]: T, readonly unwrapped: T }) |
     // N.B. the `true | false` thing here is a *massive hack* to get around TypeScript self-type jank.
@@ -33,8 +31,6 @@ export class Bindable {
     }
 
     constructor() {
-        DBG_ALIVE_SET.add(this);
-
         const backing = this;
 
         const can_access = (target: this, key: string | symbol) => {
@@ -74,12 +70,13 @@ export class Bindable {
     protected markFinalized() {
         assert(this.is_alive_);
         this.is_alive_ = false;
-        DBG_ALIVE_SET.delete(this[UNSAFE_BINDABLE_BACKING]);
     }
 }
 
 //> Part
 let PART_ID_GEN = 0;
+
+const PART_ID_MAP = (window as any)["PART_ID_MAP"] = new Map<number, Part>();
 
 export type Finalizer = () => void;
 
@@ -149,6 +146,7 @@ export class Part extends Bindable {
     //> Constructors
     constructor(parent: Part | null) {
         super();
+        PART_ID_MAP.set(this.part_id, this);
         this.parent = parent;
     }
 
@@ -211,6 +209,17 @@ export class Part extends Bindable {
         return comp!;
     }
 
+    //> PartID decoding
+    static tryFromId(id: number): Part | undefined {
+        return PART_ID_MAP.get(id);
+    }
+
+    static fromId(id: number): Part {
+        const part = Part.tryFromId(id);
+        assert(part !== undefined, "Part with id", id, "does not exist.");
+        return part!;
+    }
+
     //> Finalization
     destroy() {
         // Condemn all the object's descendants if they haven't been condemned yet.
@@ -244,6 +253,7 @@ export class Part extends Bindable {
                 this.parent_.children_.delete(this);
             }
 
+            PART_ID_MAP.delete(this.part_id);
             this.markFinalizedInner();
         }
     }
@@ -268,6 +278,7 @@ export class Entity extends Part {
         super(parent);
     }
 
+    //> Primary interface
     add<T>(comp: T, keys: IWriteKey<T>[]): T {
         assert(!(comp instanceof Part) || comp.opt_parent_entity === this);
 
@@ -301,6 +312,20 @@ export class Entity extends Part {
         assert(this.finalizer === null, "Cannot specify more than one finalizer for a given `Entity`.");
         this.finalizer = finalizer;
     }
+
+    //> PartID decoding
+    static tryEntityFromId(id: number): Entity | undefined {
+        const entity = Part.tryFromId(id);
+        return entity instanceof Entity ? entity : undefined;
+    }
+
+    static entityFromId(id: number): Entity {
+        const part = Entity.tryEntityFromId(id);
+        assert(part !== undefined, "Entity with id", id, "does not exist.");
+        return part!;
+    }
+
+    //> Handlers
 
     protected override onDestroy() {
         if (this.finalizer !== null) {
