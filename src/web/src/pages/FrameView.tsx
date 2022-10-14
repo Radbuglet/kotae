@@ -71,7 +71,7 @@ export function FrameView({ target }: EntityViewProps) {
 
 	return <>
 		<div className="frame"
-		        data-entity-id={target.part_id}
+			data-entity-id={target.part_id}
 			ref={frameRef}
 			style={{
 				position: "absolute",

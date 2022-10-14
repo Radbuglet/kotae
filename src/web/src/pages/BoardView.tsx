@@ -7,6 +7,7 @@ import { PanAndZoom } from "../util/pan";
 import { vec2 } from "gl-matrix";
 import Selecto from "react-selecto";
 import Moveable from "react-moveable";
+import "../../styles/App.css";
 
 export function BoardView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrBoard.KEY);
@@ -86,8 +87,10 @@ export function BoardView({ target }: EntityViewProps) {
 
 			    <Moveable
 				ref={moveableRef}
+				origin={false}
 				draggable={true}
 				target={selectedFrames}
+				//hideDefaultLines={true}
 				onClickGroup={e => {
 				    selectoRef.current.clickTarget(e.inputEvent, e.inputTarget);
 				}}
@@ -99,11 +102,7 @@ export function BoardView({ target }: EntityViewProps) {
 					ev.target.style.transform = ev.transform;
 				    });
 				}}
-
 				onDragEnd={e => {
-				    //console.log(e, "the end")
-				    //console.log(e.target[Object.keys(e.target)[1]])
-				    //console.log(e.target.dataset.entityId)
 				    
 				    if (e.isDrag) {
 					// this is intentionally bad!
@@ -113,31 +112,31 @@ export function BoardView({ target }: EntityViewProps) {
 					v = v.replace(")", "");
 					v = v.replace(/px/g, "").split(",");
 
-					// TODO might be better to only have this set onDragEnd,
-					// but for now I set it every tick you move (thus rerendering).
-					const target_frame = Entity.entityFromId(e.target.dataset.entityId)
+					const target_frame = Entity.entityFromId(parseInt(e.target.dataset.entityId)).get(LayoutFrame.KEY)
 					target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
 				    }
 
 				}}
 
 				onDragGroupEnd={e => {
-				    //e.events.forEach(ev => {
-				    //    ev.target.style.transform = ev.transform;
-				    //});
+				    e.events.forEach(ev => {
+					let v = ev.lastEvent.transform;
+					v = v.replace("translate(", "");
+					v = v.replace(")", "");
+					v = v.replace(/px/g, "").split(",");
+
+					const target_frame = Entity.entityFromId(parseInt(ev.target.dataset.entityId)).get(LayoutFrame.KEY)
+					target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]
+				    });
 				}}
 			    ></Moveable>
-
-
-
 
 
 
 				{Array.from(frames.values()).map(
 					frame => <FrameView 
 					    key={frame.part_id} target={frame} 
-					    //id={frame.part_id}
-					    />
+					/>
 				)}
 			</PanAndZoom>
 
@@ -159,8 +158,6 @@ export function BoardView({ target }: EntityViewProps) {
 			}}
 
 			onDragStart={e => {
-			    //console.log("onDrag", e, pan_and_zoom.current.getScrollTop());
-			    console.log(e, "asdf")
 			    const moveable = moveableRef.current;
 			    const target = e.inputEvent.target;
 			    // no idea what this is:
@@ -168,13 +165,12 @@ export function BoardView({ target }: EntityViewProps) {
 				moveable.isMoveableElement(target)
 				    || selectedFrames.some(t => t === target || t.contains(target))
 			    ) {
-				console.log("stoppin")
+				console.log("stopping select")
 				e.stop();
 			    }
 			}}
 			
 			onSelect={e => {
-			    console.log(e, "selecting!")
 			    setSelectedFrames(e.selected);
 			}}
 

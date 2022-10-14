@@ -1,3 +1,19 @@
 .test {
     @apply border-2 border-red-500;
 }
+
+.selecto-selection {
+    /*border: */
+    /*background: rgba(0, 0, 0, 0.1) !important;*/
+    /*backdrop-filter: sepia(90%) !important;*/
+    opacity: 0.5 !important;
+    @apply bg-matcha-light border-matcha-light !important;
+    border-radius: 2px;
+    /*filter: blur(2px); interesting astehtic.. */ 
+}
+
+.moveable-line {
+    border-radius: 20px !important;
+
+    @apply bg-matcha-light !important;
+}
