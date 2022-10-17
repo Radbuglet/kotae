@@ -1,11 +1,6 @@
-import { IrBoard } from 'kotae-common';
-import { Entity } from 'kotae-util';
 import * as React from 'react';
 import '../../styles/App.css';
-import "../../styles/Board.css"
 import "../../styles/Background.css"
-import { DetailsMore } from "../../../../node_modules/css.gg/icons/tsx/DetailsMore.js";
-
 
 import { BoardView } from './BoardView';
 import { EntityViewProps } from '../util/hooks';
