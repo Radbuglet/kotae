@@ -1,8 +1,5 @@
-import { IrBoard } from 'kotae-common';
-import { Entity } from 'kotae-util';
 import * as React from 'react';
 import '../../styles/App.css';
-import "../../styles/Board.css"
 import "../../styles/Background.css"
 import { ProSidebarProvider, useProSidebar } from 'react-pro-sidebar';
 import { Sidebar, Menu, MenuItem, SubMenu } from 'react-pro-sidebar';
