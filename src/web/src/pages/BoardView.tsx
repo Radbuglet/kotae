@@ -66,7 +66,7 @@ export function BoardView({ target }: EntityViewProps) {
 
 
 	return (
-		<div className="bg-white">
+		<div className="bg-matcha-paper board_inner">
 			<button className="border-2 border-red-500" onClick={() => {
 				pan_and_zoom.current!.zoom += 1;
 			}}>Zoom In</button> { }
@@ -80,7 +80,7 @@ export function BoardView({ target }: EntityViewProps) {
 				ref={pan_and_zoom}
 				viewport_props={{
 					className: "bg-matcha-paper",
-					style: { width: "100%", height: "90vh" },
+					style: { width: "100%", height: "93vh" },
 					onClick: handleClick,
 				}}
 			>

@@ -4,9 +4,13 @@
         "src/common",
         "src/util",
         "src/web",
-	"src/math"
+        "src/math"
     ],
     "devDependencies": {
         "process": "^0.11.10"
+    },
+    "dependencies": {
+        "css.gg": "^2.0.0",
+        "styled-components": "^5.3.6"
     }
 }

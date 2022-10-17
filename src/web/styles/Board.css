@@ -1,4 +1,9 @@
-.board {
-    padding: 10px;
-    border-radius: 15px;
+.board_inner {
+    padding: 5px;
+    border-radius: 10px;;
+}
+
+.board_outer {
+    margin: 7px;
+    margin-left: 50px;
 }
