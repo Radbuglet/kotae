@@ -4,5 +4,8 @@
   "main": "src/index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "pyodide": "^0.21.3"
   }
 }
