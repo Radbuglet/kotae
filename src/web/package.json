@@ -9,6 +9,7 @@
     "gl-matrix": "^3.4.3",
     "kotae-common": "file:../common",
     "kotae-util": "file:../util",
+    "mathlive": "^0.83.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^4.4.0",

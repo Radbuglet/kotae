@@ -1,4 +1,4 @@
-import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock } from "kotae-common";
+import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock, MathBlock } from "kotae-common";
 import { Entity } from "kotae-util";
 import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver, useInit } from "../util/hooks";
@@ -149,7 +149,8 @@ export function LineView({ target }: EntityViewProps) {
 		// TODO: Remove; this is just temp code
 
 		// Get the first block kind we registered
-		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[0]!;
+                console.log(target_ir.deepGet(BlockRegistry.KEY).kinds, "sfs")
+		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!;
 
 		// Construct a new block through its factory and add it to the line.
 		const block = kind.get(BLOCK_FACTORY_KEY)(target_ir);

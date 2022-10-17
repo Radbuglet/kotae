@@ -120,6 +120,8 @@ export function BoardView({ target }: EntityViewProps) {
 
 				onDragGroupEnd={e => {
 				    e.events.forEach(ev => {
+                                        if (ev.lastEvent === undefined) return;
+
 					let v = ev.lastEvent.transform;
 					v = v.replace("translate(", "");
 					v = v.replace(")", "");
