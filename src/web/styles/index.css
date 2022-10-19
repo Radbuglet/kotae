@@ -2,3 +2,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+    --matcha-50: #F4F6F3;
+    --matcha-100: #E8EEE7;
+    --matcha-200: #D1DDD0;
+    --matcha-300: #BACBB8;
+    --matcha-400: #A3BAA1;
+    --matcha-500: #8BA888;
+    --matcha-600: #6B8D67;
+    --matcha-700: #506A4E;
+    --matcha-800: #364734;
+    --matcha-900: #1B231A;
+
+    --matcha-dark: #44624a;
+    --matcha-normal: #8ba888;
+    --matcha-light: #c0cfb2;
+    --matcha-paper: #F6F4EE;
+    --matcha-ink: #3C3B44;
+    --matcha-light-ink: #70707C;
+    --matcha-highlight: #DFDCD6;
+}
+

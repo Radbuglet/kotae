@@ -6,6 +6,7 @@ import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./regist
 //import { MathfieldElement } from "mathlive";
 //import { MathfieldComponent } from "react-mathlive";
 import MathView, { MathViewRef } from 'react-math-view';
+import "../../styles/MathBlock.css";
 
 export function createKind(parent: Part | null) {
     const kind = new Entity(parent, "math block kind");
@@ -35,9 +36,10 @@ function MathBlockView({ target }: EntityViewProps) {
     const math = useListenable(target_ir.math);
 
     const block_ref = React.useRef<HTMLDivElement>(null);
+    const math_ref = React.useRef<MathViewRef>(null);
 
     React.useEffect(() => {
-        block_ref.current!.focus();
+        math_ref.current!.focus();
     }, []);
 
     return <div
@@ -50,7 +52,19 @@ function MathBlockView({ target }: EntityViewProps) {
     >
         <MathView
             value="x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}"
-            //ref={ref}
+            ref={math_ref}
+            onBlur={(e) => {
+                console.log("blurin the math field");
+            }}
+            smartMode={true}
+            smartFence={true}
+            smartSuperscript={false}
+            mathModeSpace={"\\;"}
+            onPlayingCapture
+            //className="math-field"
+            //style={{
+            //    backgroundColor: "red",
+            //}}
         />
     </div>;
 }
