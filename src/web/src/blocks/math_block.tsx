@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Entity, Part } from "kotae-util";
 import { EntityViewProps, useListenable } from "../util/hooks";
-import { IrBlock,MathBlock } from "kotae-common";
+import { IrBlock, IrFrame, IrLine, MathBlock, BlockRegistry } from "kotae-common";
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./registry";
 //import { MathfieldElement } from "mathlive";
 //import { MathfieldComponent } from "react-mathlive";
@@ -60,6 +60,25 @@ function MathBlockView({ target }: EntityViewProps) {
             onChange={(e) => {
                 //console.log("blurin the math field");
                 target_ir.math.value = e.target.value;
+                //console.log(e)
+            }}
+            onInput={(e) => {
+                if (e.inputType === "insertLineBreak") {
+                    e.preventDefault();
+                    //e.stopPropagation();
+                    const frame_ir = target_ir.deepGet(IrFrame.KEY)
+                    const line = new Entity(frame_ir, "line");
+                    const line_ir = line.add(new IrLine(line), [IrLine.KEY]);
+                    line.setFinalizer(() => {
+                        line_ir.destroy();
+                    });
+
+                    frame_ir.lines.push(line)
+                    const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!; // FIXME todo
+                    const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+                    line_ir.blocks.push(block)
+
+                }
             }}
             //smartMode={true}
             smartFence={true}
