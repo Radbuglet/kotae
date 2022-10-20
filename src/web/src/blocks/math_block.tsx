@@ -51,7 +51,7 @@ function MathBlockView({ target }: EntityViewProps) {
         //}}
     >
         <MathView
-            value="x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}"
+            value=""
             ref={math_ref}
             onBlur={(e) => {
                 console.log("blurin the math field");
