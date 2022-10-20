@@ -21,6 +21,7 @@ export function OurSidebar() {
 
     return (<>
         {/** All of these attributes of sidebar are self-explanatory, except that trainsitionDuration is # of ms to animate collapse/expand. */}
+        {/** We had the styling to override a white border the library creates. */}
         <Sidebar defaultCollapsed={true} backgroundColor="var(--matcha-normal)" transitionDuration={250} collapsedWidth="60px" width="228px"
             className="sidebar" style={{ borderRight: "2px solid var(--matcha-normal)" }}>
             <Menu>
