@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Entity, Part } from "kotae-util";
 import { EntityViewProps, useListenable } from "../util/hooks";
-import { IrBlock, TextBlock } from "kotae-common";
+import { BlockRegistry, IrBlock, TextBlock, IrLine, IrFrame } from "kotae-common";
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./registry";
 
 export function createKind(parent: Part | null) {
@@ -37,6 +37,25 @@ function TextBlockView({ target }: EntityViewProps) {
         block_ref.current!.focus();
     }, []);
 
+    const handleKeydown = (e: React.KeyboardEvent) => {
+        //console.log(e)
+        if (e.key === "Enter") {
+            e.preventDefault();
+            //e.stopPropagation();
+            const frame_ir = target_ir.deepGet(IrFrame.KEY)
+            const line = new Entity(frame_ir, "line");
+            const line_ir = line.add(new IrLine(line), [IrLine.KEY]);
+            line.setFinalizer(() => {
+                line_ir.destroy();
+            });
+                
+            frame_ir.lines.push(line)
+            const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[0]!; // FIXME todo
+            const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+            line_ir.blocks.push(block)
+        }
+    }
+
     return <div
         className="outline-none"
         ref={block_ref}
@@ -44,6 +63,7 @@ function TextBlockView({ target }: EntityViewProps) {
         onBlur={(e) => {
             target_ir.text.value = e.currentTarget.innerText
         }}
+        onKeyDown={handleKeydown}
     >
         {text}
     </div>;
