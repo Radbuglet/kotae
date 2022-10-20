@@ -54,6 +54,52 @@ function TextBlockView({ target }: EntityViewProps) {
             const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
             line_ir.blocks.push(block)
         }
+
+
+        if (e.key == "Backspace") {
+            const pos = getCaretPosition(block_ref.current!)
+            if (pos !== 0 || text !== "") return;
+
+            const line_ir = target_ir.deepGet(IrLine.KEY);
+            const frame_ir = target_ir.deepGet(IrFrame.KEY);
+            const ind = frame_ir.lines.indexOf(line_ir.parent_entity);
+
+            if (frame_ir.lines.value.length === 1) return;
+
+            line_ir.destroy()
+
+            if (ind !== 0) {
+                const prev_line_ir = frame_ir.lines.value[ind-1].deepGet(IrLine.KEY);
+                prev_line_ir.blocks.value[0].get().focusMe.value += 1
+
+            }
+        }
+
+    }
+
+    const getCaretPosition = (editableDiv) => {
+        var caretPos = 0,
+            sel, range;
+        if (window.getSelection) {
+            sel = window.getSelection();
+            if (sel.rangeCount) {
+                range = sel.getRangeAt(0);
+                if (range.commonAncestorContainer.parentNode == editableDiv) {
+                    caretPos = range.endOffset;
+                }
+            }
+        } else if (document.selection && document.selection.createRange) {
+            range = document.selection.createRange();
+            if (range.parentElement() == editableDiv) {
+                var tempEl = document.createElement("span");
+                editableDiv.insertBefore(tempEl, editableDiv.firstChild);
+                var tempRange = range.duplicate();
+                tempRange.moveToElementText(tempEl);
+                tempRange.setEndPoint("EndToEnd", range);
+                caretPos = tempRange.text.length;
+            }
+        }
+        return caretPos;
     }
 
     return <div

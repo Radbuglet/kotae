@@ -35,7 +35,7 @@ export function FrameView({ target }: EntityViewProps) {
 
                 // TODO @NICK CHNAGE THIS TO UR THING
                 // thx babe
-		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!;
+		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[0]!;
 
 		// Construct a new block through its factory and add it to the line.
                 const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
