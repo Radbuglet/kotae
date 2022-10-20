@@ -2,9 +2,6 @@
     @apply border-2 border-red-500;
 }
 
-*{
-  opacity: 0 !important;
-}
 
 .selecto-selection {
     /*border: */
