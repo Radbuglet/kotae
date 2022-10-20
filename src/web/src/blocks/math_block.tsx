@@ -40,27 +40,31 @@ function MathBlockView({ target }: EntityViewProps) {
 
     React.useEffect(() => {
         math_ref.current!.focus();
+        //set_just_mounted(false);
     }, []);
 
     return <div
         className="outline-none"
         ref={block_ref}
-        //contentEditable={true}
-        //onBlur={(e) => {
-        //    target_ir.math.value = e.currentTarget.innerText
-        //}}
     >
         <MathView
-            value=""
+           value={math}
             ref={math_ref}
             onBlur={(e) => {
-                console.log("blurin the math field");
+                //if (!target_ir.is_alive) return;
+
+                //if (!target_ir.on_initialize.value) {
+                //    target_ir.on_initialize.value = false;
+                //}
             }}
-            smartMode={true}
+            onChange={(e) => {
+                //console.log("blurin the math field");
+                target_ir.math.value = e.target.value;
+            }}
+            //smartMode={true}
             smartFence={true}
             smartSuperscript={false}
             mathModeSpace={"\\;"}
-            onPlayingCapture
             //className="math-field"
             //style={{
             //    backgroundColor: "red",
