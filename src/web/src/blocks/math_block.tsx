@@ -48,7 +48,7 @@ function MathBlockView({ target }: EntityViewProps) {
         ref={block_ref}
     >
         <MathView
-            value={math}
+           value={math}
             ref={math_ref}
             onBlur={(e) => {
                 //if (!target_ir.is_alive) return;
