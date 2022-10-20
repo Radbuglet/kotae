@@ -26,6 +26,9 @@ math-field {
     /*--selection-color-focused: red;*/
     /*--selection-background-color-focused	: red;*/
     /*--placeholder-color	: red;*/
+    /*max-height: 20px;*/
+    margin-top: -10px !important;
+    margin-bottom: -8px !important;
 
 }
 
