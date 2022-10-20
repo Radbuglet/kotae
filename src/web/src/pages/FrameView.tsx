@@ -55,11 +55,27 @@ export function FrameView({ target }: EntityViewProps) {
 				return true;
 			}
 
-			const first_block_text = first_block.tryGet(TextBlock.KEY);
+			let first_block_text = first_block.tryGet(TextBlock.KEY);
 
 			if (first_block_text !== undefined && first_block_text.text.value === "") {
 				return true;
 			}
+
+
+                        if (first_block_text === undefined) {
+                                let first_block_math = first_block.tryGet(MathBlock.KEY);
+
+                                if (first_block_math !== undefined) {
+                                    if (first_block_math.math.value === "") {
+                                        if (first_block_math.on_initialize.value) {
+                                            first_block_math.on_initialize.value = false;
+                                            return false
+                                        }
+                                        console.log("notin! deleting.")
+                                        return true;
+                                    }
+                                }
+                        }
 
 			return false;
 		};
@@ -149,7 +165,6 @@ export function LineView({ target }: EntityViewProps) {
 		// TODO: Remove; this is just temp code
 
 		// Get the first block kind we registered
-                console.log(target_ir.deepGet(BlockRegistry.KEY).kinds, "sfs")
 		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!;
 
 		// Construct a new block through its factory and add it to the line.

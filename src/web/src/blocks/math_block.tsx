@@ -40,6 +40,7 @@ function MathBlockView({ target }: EntityViewProps) {
 
     React.useEffect(() => {
         math_ref.current!.focus();
+        //set_just_mounted(false);
     }, []);
 
     return <div
@@ -49,6 +50,13 @@ function MathBlockView({ target }: EntityViewProps) {
         <MathView
             value={math}
             ref={math_ref}
+            onBlur={(e) => {
+                //if (!target_ir.is_alive) return;
+
+                //if (!target_ir.on_initialize.value) {
+                //    target_ir.on_initialize.value = false;
+                //}
+            }}
             onChange={(e) => {
                 //console.log("blurin the math field");
                 target_ir.math.value = e.target.value;
