@@ -21,7 +21,8 @@ export function OurSidebar() {
 
     return (<>
         {/** All of these attributes of sidebar are self-explanatory, except that trainsitionDuration is # of ms to animate collapse/expand. */}
-        <Sidebar defaultCollapsed={true} backgroundColor="rgb(139 168 136)" transitionDuration={250} collapsedWidth="80px" width="228px">
+        <Sidebar defaultCollapsed={true} backgroundColor="var(--matcha-normal)" transitionDuration={250} collapsedWidth="60px" width="228px"
+            className="sidebar" style={{ borderRight: "2px solid var(--matcha-normal)" }}>
             <Menu>
                 <MenuItem icon={expanded ? <PushChevronLeft /> : <PushChevronRight />} onClick={() => { setExpanded(!expanded); collapseSidebar(); }}>
                     Collapse

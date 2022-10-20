@@ -13,7 +13,11 @@ export default function AppView({ target }: EntityViewProps) {
 		<ProSidebarProvider>
 			<div className="bg-matcha-normal the_background">
 				{/** Called "OurSidebar" because the lib we use for the sidebar calls their class "Sidebar". */}
-				<OurSidebar></OurSidebar> 
+                            <div
+                                style={{
+                                    borderRight: "2px solid var(--matcha-normal)",
+                                }}
+                            > <OurSidebar></OurSidebar> </div>
 				{/** We have two css classes, board_outer and board_inner because the css with the infinite canvas behaves funky. */}
 				<div className="board_outer"> 
 					{/** Where all the magic occurs ;) */}
