@@ -30,6 +30,10 @@
   },
   "scripts": {
     "start": "parcel static/index.html",
+    "build": "parcel build static/index.html",
+    "tauri": "tauri",
+    "dev": "npm run tauri dev",
+    "bundle": "tauri build",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
