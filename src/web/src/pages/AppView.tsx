@@ -1,4 +1,5 @@
 import * as React from 'react';
+
 import '../../styles/App.css';
 import "../../styles/Background.css"
 import { OurSidebar } from './Sidebar';
@@ -11,10 +12,13 @@ export default function AppView({ target }: EntityViewProps) {
 	return (
 		<ProSidebarProvider>
 			<div className="bg-matcha-normal the_background">
-			<OurSidebar></OurSidebar>
-			<div className="board_outer">
-				<BoardView target={target} />
-			</div>
+				{/** Called "OurSidebar" because the lib we use for the sidebar calls their class "Sidebar". */}
+				<OurSidebar></OurSidebar> 
+				{/** We have two css classes, board_outer and board_inner because the css with the infinite canvas behaves funky. */}
+				<div className="board_outer"> 
+					{/** Where all the magic occurs ;) */}
+					<BoardView target={target} />
+				</div>
 			</div>
 		</ProSidebarProvider>);
 }
