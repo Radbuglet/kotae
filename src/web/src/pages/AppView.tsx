@@ -19,7 +19,7 @@ export default function AppView({ target }: EntityViewProps) {
 					}}
 				>
 					{/** Called "OurSidebar" because the lib we use for the sidebar calls their class "Sidebar". */}
-					<OurSidebar></OurSidebar>
+					<OurSidebar target={target}></OurSidebar>
 				</div>
 				{/** We have two css classes, board_outer and board_inner because the css with the infinite canvas behaves funky. */}
 				<div className="board_outer">

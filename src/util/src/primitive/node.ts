@@ -163,6 +163,10 @@ export class Part extends Bindable {
     *ancestorEntities(): IterableIterator<Entity> {
         let target: Entity | null = this.entity_;
 
+        if (this instanceof Entity) {
+            yield this;
+        }
+
         while (target !== null) {
             yield target;
             target = target.entity_;
