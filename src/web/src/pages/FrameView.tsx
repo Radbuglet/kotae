@@ -9,6 +9,7 @@ import type { OnDrag } from "react-moveable";
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
 import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../blocks/registry";
+import { DEFAULT_INSERTION_MODE } from "../blocks/factory";
 
 export function FrameView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrFrame.KEY);
@@ -19,6 +20,8 @@ export function FrameView({ target }: EntityViewProps) {
 
 	const frameRef = React.useRef<HTMLDivElement>(null);
 	const handleRef = React.useRef<HTMLDivElement>(null);
+	const block_insertion_mode = target.deepGet(DEFAULT_INSERTION_MODE);
+	const curr_ins_mode = useListenable(block_insertion_mode);
 
 	const doDestroy = wrapWeakReceiver(target, target => {
 		target.destroy();
@@ -33,13 +36,10 @@ export function FrameView({ target }: EntityViewProps) {
 
 		target_ir.lines.push(line);
 
-                // TODO @NICK CHNAGE THIS TO UR THING
-                // thx babe
-		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[0]!;
-
+		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!;
 		// Construct a new block through its factory and add it to the line.
-                const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
-                line_ir.blocks.push(block);
+		const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+		line_ir.blocks.push(block);
 
 	});
 
