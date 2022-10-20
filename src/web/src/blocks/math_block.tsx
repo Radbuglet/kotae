@@ -45,22 +45,18 @@ function MathBlockView({ target }: EntityViewProps) {
     return <div
         className="outline-none"
         ref={block_ref}
-        //contentEditable={true}
-        //onBlur={(e) => {
-        //    target_ir.math.value = e.currentTarget.innerText
-        //}}
     >
         <MathView
-            value="x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}"
+            value={math}
             ref={math_ref}
-            onBlur={(e) => {
-                console.log("blurin the math field");
+            onChange={(e) => {
+                //console.log("blurin the math field");
+                target_ir.math.value = e.target.value;
             }}
-            smartMode={true}
+            //smartMode={true}
             smartFence={true}
             smartSuperscript={false}
             mathModeSpace={"\\;"}
-            onPlayingCapture
             //className="math-field"
             //style={{
             //    backgroundColor: "red",
