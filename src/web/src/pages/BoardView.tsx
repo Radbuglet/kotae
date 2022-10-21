@@ -95,7 +95,7 @@ export function BoardView({ target }: EntityViewProps) {
 					className: "bg-matcha-paper",
 					style: { width: "100%", height: "100%" },
 					onClick: handleClick,
-				}}
+                            }}
 			>
 
 				<Moveable
@@ -165,6 +165,9 @@ export function BoardView({ target }: EntityViewProps) {
 				toggleContinueSelect={["shift"]}
 				ratio={0}
 				{...(scrollOptions !== undefined ? { scrollOptions } : {})}
+                            onKeyDown={e => {
+                                console.log(e, "whee")
+                            }}
 
 				dragCondition={e => {
 					// TODO we need to think about the right thing here -- this is just temp.
