@@ -9,6 +9,8 @@ import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks"
 import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
 import "../../styles/Board.css"
+import { useGesture, usePinch } from '@use-gesture/react'
+
 
 export function BoardView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrBoard.KEY);
@@ -20,6 +22,7 @@ export function BoardView({ target }: EntityViewProps) {
 	const moveableRef = React.useRef<Moveable>(null);
 	const selectoRef = React.useRef<Selecto>(null);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
+	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
 
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
@@ -52,7 +55,8 @@ export function BoardView({ target }: EntityViewProps) {
 	})
 
 
-	React.useEffect(() => {
+        React.useEffect(() => {
+
 		setScrollOptions({
 			container: pan_and_zoom.current!.viewport,
 			//getScrollPosition: () => {
@@ -67,8 +71,52 @@ export function BoardView({ target }: EntityViewProps) {
 	}, []);
 
 
+        React.useEffect(() => {
+            if (pan_and_zoom_wrapper.current != null) {
+                //pan_and_zoom_wrapper.current!.addEventListener('wheel', 
+                //                                               event => {
+                //                                                   const { ctrlKey } = event
+                //                                                   if (ctrlKey) {
+                //                                                       event.preventDefault();
+                //                                                       return
+                //                                                   }
+                //                                               }
+                //                                               , { passive: false });
+            }
+        }, [pan_and_zoom_wrapper.current])
+
+
+        //const bind = useGesture(
+        //    {
+        //        onPinch: (state) => {
+        //            console.log(state)
+        //            //state.event.preventDefault()
+        //        },
+        //    },
+        //    //config
+        //)
+
+        const bindPinch = usePinch((state) => {
+            state.event.preventDefault();
+            console.log(state._delta)
+            pan_and_zoom.current!.zoom += state._delta[0];
+        }, {
+            event: { passive: false },
+            target: pan_and_zoom_wrapper,
+        });
+
+
 	return (
-		<div className="bg-matcha-paper board_inner">
+		<div className="bg-matcha-paper board_inner"
+                            {...bindPinch}
+                    //style={{
+                    //    "user-scalable": "no",
+                    //}}
+                    //onWheel={(e) => {
+                    //    e.preventDefault()
+                    //}}
+                    ref={pan_and_zoom_wrapper}
+                >
 			<button className="border-2 border-red-500" onClick={() => {
 				pan_and_zoom.current!.zoom += 1;
 			}}>Zoom In</button> { }
@@ -107,17 +155,17 @@ export function BoardView({ target }: EntityViewProps) {
                                     					onDragEnd={e => {
 						if (!e.isDrag) return;
 
-						const eid = e.target?.dataset["entityId"];
-						if (eid === undefined) return;
+                                                const eid = e.target?.dataset["entityId"];
+                                                if (eid === undefined) return;
 
-						// this is intentionally bad!
-						// until a better solution is found by @david.
-						let v = e.lastEvent.transform;
-						v = v.replace("translate(", "");
-						v = v.replace(")", "");
-						v = v.replace(/px/g, "").split(",");
+                                                // this is intentionally bad!
+                                                // until a better solution is found by @david.
+                                                let v = e.lastEvent.transform;
+                                                v = v.replace("translate(", "");
+                                                v = v.replace(")", "");
+                                                v = v.replace(/px/g, "").split(",");
 
-						const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
+                                                const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
 						target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
 					}}
 
