@@ -70,67 +70,30 @@ export function BoardView({ target }: EntityViewProps) {
 		});
 	}, []);
 
-
-        React.useEffect(() => {
-            if (pan_and_zoom_wrapper.current != null) {
-                //pan_and_zoom_wrapper.current!.addEventListener('wheel', 
-                //                                               event => {
-                //                                                   const { ctrlKey } = event
-                //                                                   if (ctrlKey) {
-                //                                                       event.preventDefault();
-                //                                                       return
-                //                                                   }
-                //                                               }
-                //                                               , { passive: false });
-            }
-        }, [pan_and_zoom_wrapper.current])
-
-
-        //const bind = useGesture(
-        //    {
-        //        onPinch: (state) => {
-        //            console.log(state)
-        //            //state.event.preventDefault()
-        //        },
-        //    },
-        //    //config
-        //)
-
         const bindPinch = usePinch((state) => {
             state.event.preventDefault();
-            console.log(state._delta)
             pan_and_zoom.current!.zoom += state._delta[0];
         }, {
             event: { passive: false },
             target: pan_and_zoom_wrapper,
         });
 
+        const resetZoom = () => {
+            const paz = pan_and_zoom.current!;
+            paz.center = vec2.create();
+            paz.zoom = 1;
+        }
 
 	return (
-		<div className="bg-matcha-paper board_inner"
-                            {...bindPinch}
-                    //style={{
-                    //    "user-scalable": "no",
-                    //}}
-                    //onWheel={(e) => {
-                    //    e.preventDefault()
-                    //}}
+		<div className="h-full bg-matcha-paper board_inner"
+                    {...bindPinch}
                     ref={pan_and_zoom_wrapper}
                 >
-			<button className="border-2 border-red-500" onClick={() => {
-				pan_and_zoom.current!.zoom += 1;
-			}}>Zoom In</button> { }
-			<button className="border-2 border-red-500" onClick={() => {
-				const paz = pan_and_zoom.current!;
-				paz.center = vec2.create();
-				paz.zoom = 1;
-			}}>Reset Zoom</button>
-
 			<PanAndZoom
 				ref={pan_and_zoom}
 				viewport_props={{
 					className: "bg-matcha-paper",
-					style: { width: "100%", height: "93vh" },
+					style: { width: "100%", height: "100%" },
 					onClick: handleClick,
 				}}
 			>
