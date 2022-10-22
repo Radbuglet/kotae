@@ -1,18 +1,8 @@
-// TODO: add more buttons with more functionality 
-// TODO: figure out how to color icons
-// TODO: figure out how to get rid of the annoying 1 px border
-
 import * as React from "react";
 
-import { Sidebar, Menu, MenuItem, useProSidebar/*, SubMenu*/ } from 'react-pro-sidebar';
-import { SoftwareDownload } from 'css.gg/icons/tsx/SoftwareDownload';
-import { PushChevronRight } from 'css.gg/icons/tsx/PushChevronRight';
-import { PushChevronLeft } from 'css.gg/icons/tsx/PushChevronLeft';
-import { Controller } from 'css.gg/icons/tsx/Controller';
-import { FormatText } from 'css.gg/icons/tsx/FormatText';
-import { Infinity } from 'css.gg/icons/tsx/Infinity';
-import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
 import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
+import { Sidebar, Menu, MenuItem, useProSidebar/*, SubMenu*/ } from 'react-pro-sidebar';
+import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
 
 import { FaAngleDoubleRight, FaAngleDoubleLeft, FaInfinity, FaTextHeight, FaGamepad, FaDownload } from 'react-icons/fa';
 import { TbMathAvg } from 'react-icons/tb';
