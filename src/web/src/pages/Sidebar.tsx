@@ -12,11 +12,12 @@ import { Controller } from 'css.gg/icons/tsx/Controller';
 import { FormatText } from 'css.gg/icons/tsx/FormatText';
 import { Infinity } from 'css.gg/icons/tsx/Infinity';
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
-import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE } from "../blocks/factory";
+import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
 
 import { FaAngleDoubleRight, FaAngleDoubleLeft, FaInfinity, FaTextHeight, FaGamepad, FaDownload } from 'react-icons/fa';
 import { TbMathAvg } from 'react-icons/tb';
 import { BiText, BiSelection } from 'react-icons/bi';
+import { MdOutlineShareLocation } from 'react-icons/md';
 
 // import { DetailsMore } from 'css.gg/icons/tsx/DetailsMore';
 
@@ -27,6 +28,7 @@ export function OurSidebar({ target }: EntityViewProps) {
 
     const block_insertion_mode = target.deepGet(DEFAULT_INSERTION_MODE);
     const select_toggle = target.deepGet(SELECT_ACTIVE);
+    const reset_zoom = target.deepGet(RESET_MY_ZOOM);
 
     const doCycleInsertionMode = wrapWeakReceiver(block_insertion_mode, _ => {
         const value = (block_insertion_mode.value + 1) % 2;
@@ -37,6 +39,11 @@ export function OurSidebar({ target }: EntityViewProps) {
     const doCycleSelectToggle = wrapWeakReceiver(select_toggle, _ => {
         const value = (select_toggle.value + 1) % 2;
         select_toggle.value = value;
+
+    });
+
+    const doTriggerResetZoom = wrapWeakReceiver(reset_zoom, _ => {
+        reset_zoom.value += 1;
 
     });
 
@@ -97,6 +104,12 @@ export function OurSidebar({ target }: EntityViewProps) {
                     onClick={doCycleSelectToggle}
                 > 
                     Select mode
+                </MenuItem>
+                <MenuItem icon={<MdOutlineShareLocation size={25} />
+                    }
+                    onClick={doTriggerResetZoom}
+                > 
+                    Reset zoom
                 </MenuItem>
                 {
                     /*

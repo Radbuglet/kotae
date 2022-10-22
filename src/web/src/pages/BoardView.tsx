@@ -10,7 +10,7 @@ import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
 import "../../styles/Board.css"
 import { useGesture, usePinch } from '@use-gesture/react'
-import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE } from "../blocks/factory";
+import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
 
 
 export function BoardView({ target }: EntityViewProps) {
@@ -26,7 +26,12 @@ export function BoardView({ target }: EntityViewProps) {
 	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
 
         const select_toggle = target.deepGet(SELECT_ACTIVE);
-        const curr_select_active = useListenable(select_toggle);
+        const curr_select_active = useListenable(select_toggle); // TODO make onkeydown for alt toggle this, and onkeyup reset it!
+        // gotta figure out a global keybinding system. TODO TODO.
+
+
+        const reset_my_zoom = target.deepGet(RESET_MY_ZOOM);
+        const listen_reset_my_zoom = useListenable(reset_my_zoom);
 
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
@@ -77,16 +82,22 @@ export function BoardView({ target }: EntityViewProps) {
         const bindPinch = usePinch((state) => {
             state.event.preventDefault();
             pan_and_zoom.current!.zoom += state._delta[0];
+            console.log(state)
         }, {
             event: { passive: false },
             target: pan_and_zoom_wrapper,
         });
 
-        const resetZoom = () => {
+        const resetZoom = () => { // FIXME this doesn't reset some damping factor
+        // meaning that the zooming speed gets all screwy
             const paz = pan_and_zoom.current!;
             paz.center = vec2.create();
             paz.zoom = 1;
         }
+
+        React.useEffect(() => {
+            resetZoom()
+        }, [listen_reset_my_zoom]);
 
 	return (
 		<div className="h-full bg-matcha-paper board_inner"
@@ -107,7 +118,7 @@ export function BoardView({ target }: EntityViewProps) {
 					origin={false}
 					draggable={true}
 					target={selectedFrames}
-					//hideDefaultLines={true}
+		i		//hideDefaultLines={true}
 					onClickGroup={e => {
 						selectoRef.current!.clickTarget(e.inputEvent, e.inputTarget);
 					}}
