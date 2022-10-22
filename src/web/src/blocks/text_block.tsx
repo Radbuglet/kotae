@@ -56,24 +56,24 @@ function TextBlockView({ target }: EntityViewProps) {
         }
 
 
-        if (e.key == "Backspace") {
-            const pos = getCaretPosition(block_ref.current!)
-            if (pos !== 0 || text !== "") return;
+        //if (e.key == "Backspace") {
+        //    const pos = getCaretPosition(block_ref.current!)
+        //    if (pos !== 0 || text !== "") return;
 
-            const line_ir = target_ir.deepGet(IrLine.KEY);
-            const frame_ir = target_ir.deepGet(IrFrame.KEY);
-            const ind = frame_ir.lines.indexOf(line_ir.parent_entity);
+        //    const line_ir = target_ir.deepGet(IrLine.KEY);
+        //    const frame_ir = target_ir.deepGet(IrFrame.KEY);
+        //    const ind = frame_ir.lines.indexOf(line_ir.parent_entity);
 
-            if (frame_ir.lines.value.length === 1) return;
+        //    if (frame_ir.lines.value.length === 1) return;
 
-            line_ir.destroy()
+        //    line_ir.destroy()
 
-            if (ind !== 0) {
-                const prev_line_ir = frame_ir.lines.value[ind-1].deepGet(IrLine.KEY);
-                prev_line_ir.blocks.value[0].get().focusMe.value += 1
+        //    if (ind !== 0) {
+        //        const prev_line_ir = frame_ir.lines.value[ind-1].deepGet(IrLine.KEY);
+        //        prev_line_ir.blocks.value[0].get().focusMe.value += 1
 
-            }
-        }
+        //    }
+        //}
 
     }
 

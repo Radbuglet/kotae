@@ -1,9 +1,10 @@
 .board_inner {
     padding: 5px;
     border-radius: 10px;;
+    box-shadow: 0px 0px 5px #44624A;
 }
 
 .board_outer {
-    margin: 7px;
+    margin: 10px;
     width: 100%;
 }

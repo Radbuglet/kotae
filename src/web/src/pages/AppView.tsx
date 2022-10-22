@@ -11,11 +11,12 @@ import { ProSidebarProvider } from 'react-pro-sidebar';
 export default function AppView({ target }: EntityViewProps) {
 	return (
 		<ProSidebarProvider>
-			<div className="bg-matcha-normal the_background">
+			<div className="bg-matcha-bluish the_background"
+                        >
 				{/** We wrap the sidebar in a div to get rid of a white border that the library creates. */}
 				<div
 					style={{
-						borderRight: "2px solid var(--matcha-normal)",
+						borderRight: "2px solid var(--matcha-bluish)",
 					}}
 				>
 					{/** Called "OurSidebar" because the lib we use for the sidebar calls their class "Sidebar". */}

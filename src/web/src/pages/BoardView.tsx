@@ -9,6 +9,9 @@ import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks"
 import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
 import "../../styles/Board.css"
+import { useGesture, usePinch } from '@use-gesture/react'
+import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
+
 
 export function BoardView({ target }: EntityViewProps) {
 	const target_ir = target.get(IrBoard.KEY);
@@ -20,13 +23,22 @@ export function BoardView({ target }: EntityViewProps) {
 	const moveableRef = React.useRef<Moveable>(null);
 	const selectoRef = React.useRef<Selecto>(null);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
+	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
+
+        const select_toggle = target.deepGet(SELECT_ACTIVE);
+        const curr_select_active = useListenable(select_toggle); // TODO make onkeydown for alt toggle this, and onkeyup reset it!
+        // gotta figure out a global keybinding system. TODO TODO.
+
+
+        const reset_my_zoom = target.deepGet(RESET_MY_ZOOM);
+        const listen_reset_my_zoom = useListenable(reset_my_zoom);
 
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
 		const paz = pan_and_zoom.current!;
 		if (!paz.isHelperElement(e.target)) return;
 
-		if (e.altKey) return; // if we are selecting, don't create a new frame
+		if (e.altKey || curr_select_active) return; // if we are selecting, don't create a new frame
 
 		const bb = paz.viewport.getBoundingClientRect();
 		const pos: vec2 = [
@@ -52,7 +64,8 @@ export function BoardView({ target }: EntityViewProps) {
 	})
 
 
-	React.useEffect(() => {
+        React.useEffect(() => {
+
 		setScrollOptions({
 			container: pan_and_zoom.current!.viewport,
 			//getScrollPosition: () => {
@@ -66,25 +79,38 @@ export function BoardView({ target }: EntityViewProps) {
 		});
 	}, []);
 
+        const bindPinch = usePinch((state) => {
+            state.event.preventDefault();
+            pan_and_zoom.current!.zoom += state._delta[0];
+            console.log(state)
+        }, {
+            event: { passive: false },
+            target: pan_and_zoom_wrapper,
+        });
+
+        const resetZoom = () => { // FIXME this doesn't reset some damping factor
+        // meaning that the zooming speed gets all screwy
+            const paz = pan_and_zoom.current!;
+            paz.center = vec2.create();
+            paz.zoom = 1;
+        }
+
+        React.useEffect(() => {
+            resetZoom()
+        }, [listen_reset_my_zoom]);
 
 	return (
-		<div className="bg-matcha-paper board_inner">
-			<button className="border-2 border-red-500" onClick={() => {
-				pan_and_zoom.current!.zoom += 1;
-			}}>Zoom In</button> { }
-			<button className="border-2 border-red-500" onClick={() => {
-				const paz = pan_and_zoom.current!;
-				paz.center = vec2.create();
-				paz.zoom = 1;
-			}}>Reset Zoom</button>
-
+		<div className="h-full bg-matcha-paper board_inner"
+                    {...bindPinch}
+                    ref={pan_and_zoom_wrapper}
+                >
 			<PanAndZoom
 				ref={pan_and_zoom}
 				viewport_props={{
 					className: "bg-matcha-paper",
-					style: { width: "100%", height: "93vh" },
+					style: { width: "100%", height: "100%" },
 					onClick: handleClick,
-				}}
+                            }}
 			>
 
 				<Moveable
@@ -92,7 +118,7 @@ export function BoardView({ target }: EntityViewProps) {
 					origin={false}
 					draggable={true}
 					target={selectedFrames}
-					//hideDefaultLines={true}
+		i		//hideDefaultLines={true}
 					onClickGroup={e => {
 						selectoRef.current!.clickTarget(e.inputEvent, e.inputTarget);
 					}}
@@ -107,17 +133,17 @@ export function BoardView({ target }: EntityViewProps) {
                                     					onDragEnd={e => {
 						if (!e.isDrag) return;
 
-						const eid = e.target?.dataset["entityId"];
-						if (eid === undefined) return;
+                                                const eid = e.target?.dataset["entityId"];
+                                                if (eid === undefined) return;
 
-						// this is intentionally bad!
-						// until a better solution is found by @david.
-						let v = e.lastEvent.transform;
-						v = v.replace("translate(", "");
-						v = v.replace(")", "");
-						v = v.replace(/px/g, "").split(",");
+                                                // this is intentionally bad!
+                                                // until a better solution is found by @david.
+                                                let v = e.lastEvent.transform;
+                                                v = v.replace("translate(", "");
+                                                v = v.replace(")", "");
+                                                v = v.replace(/px/g, "").split(",");
 
-						const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
+                                                const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
 						target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
 					}}
 
@@ -158,7 +184,7 @@ export function BoardView({ target }: EntityViewProps) {
 				dragCondition={e => {
 					// TODO we need to think about the right thing here -- this is just temp.
 					// could / should be a mode on the sidebar
-					return e.inputEvent.altKey; // only drag if we have the alt key pressed
+					return (e.inputEvent.altKey || curr_select_active); // only drag if we have the alt key pressed
 				}}
 
 				onDragStart={e => {

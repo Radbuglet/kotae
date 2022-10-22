@@ -49,7 +49,7 @@ function MathBlockView({ target }: EntityViewProps) {
 
     const handleKeydown = (e) => {
         console.log(prevVal)
-        if (e.key == "Backspace") {
+        if (e.key == "Backspace") { // FIXME TODO for some reason this leaks once it triggers then you delete the entire block. :shrug:
             if (math_ref.current!.selection.ranges[0][0] !== 0 || prevVal !== "") return;
 
             const line_ir = target_ir.deepGet(IrLine.KEY);
