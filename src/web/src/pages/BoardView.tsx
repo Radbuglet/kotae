@@ -23,7 +23,10 @@ export function BoardView({ target }: EntityViewProps) {
 	const moveableRef = React.useRef<Moveable>(null);
 	const selectoRef = React.useRef<Selecto>(null);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
-	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
+	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null); 
+
+        // FIXME the zoom goes from the center of the screen
+        // not the cursor!
 
         const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
         const curr_select_active = useListenable(select_toggle); // TODO: make onkeydown for alt toggle this, and onkeyup reset it!
