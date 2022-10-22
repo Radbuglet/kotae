@@ -10,6 +10,7 @@ import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
 import "../../styles/Board.css"
 import { useGesture, usePinch } from '@use-gesture/react'
+import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE } from "../blocks/factory";
 
 
 export function BoardView({ target }: EntityViewProps) {
@@ -24,12 +25,15 @@ export function BoardView({ target }: EntityViewProps) {
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
 	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
 
+        const select_toggle = target.deepGet(SELECT_ACTIVE);
+        const curr_select_active = useListenable(select_toggle);
+
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
 		const paz = pan_and_zoom.current!;
 		if (!paz.isHelperElement(e.target)) return;
 
-		if (e.altKey) return; // if we are selecting, don't create a new frame
+		if (e.altKey || curr_select_active) return; // if we are selecting, don't create a new frame
 
 		const bb = paz.viewport.getBoundingClientRect();
 		const pos: vec2 = [
@@ -165,14 +169,11 @@ export function BoardView({ target }: EntityViewProps) {
 				toggleContinueSelect={["shift"]}
 				ratio={0}
 				{...(scrollOptions !== undefined ? { scrollOptions } : {})}
-                            onKeyDown={e => {
-                                console.log(e, "whee")
-                            }}
 
 				dragCondition={e => {
 					// TODO we need to think about the right thing here -- this is just temp.
 					// could / should be a mode on the sidebar
-					return e.inputEvent.altKey; // only drag if we have the alt key pressed
+					return (e.inputEvent.altKey || curr_select_active); // only drag if we have the alt key pressed
 				}}
 
 				onDragStart={e => {
