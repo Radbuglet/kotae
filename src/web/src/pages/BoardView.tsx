@@ -25,13 +25,13 @@ export function BoardView({ target }: EntityViewProps) {
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
 	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
 
-        const select_toggle = target.deepGet(SELECT_ACTIVE);
-        const curr_select_active = useListenable(select_toggle); // TODO make onkeydown for alt toggle this, and onkeyup reset it!
-        // gotta figure out a global keybinding system. TODO TODO.
+        const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
+        const curr_select_active = useListenable(select_toggle); // TODO: make onkeydown for alt toggle this, and onkeyup reset it!
+        // TODO: gotta figure out a global keybinding system. TODO TODO.
 
 
-        const reset_my_zoom = target.deepGet(RESET_MY_ZOOM);
-        const listen_reset_my_zoom = useListenable(reset_my_zoom);
+        const reset_my_zoom = target.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
+        const listen_reset_my_zoom = useListenable(reset_my_zoom); // how we read zoom reseting variable
 
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
@@ -64,8 +64,8 @@ export function BoardView({ target }: EntityViewProps) {
 	})
 
 
-        React.useEffect(() => {
-
+	// I'm not sure why we're doing useEffect on an empty array... - Nick
+	React.useEffect(() => {
 		setScrollOptions({
 			container: pan_and_zoom.current!.viewport,
 			//getScrollPosition: () => {
@@ -79,25 +79,26 @@ export function BoardView({ target }: EntityViewProps) {
 		});
 	}, []);
 
-        const bindPinch = usePinch((state) => {
-            state.event.preventDefault();
-            pan_and_zoom.current!.zoom += state._delta[0];
-            console.log(state)
-        }, {
-            event: { passive: false },
-            target: pan_and_zoom_wrapper,
-        });
+	const bindPinch = usePinch((state) => {
+		state.event.preventDefault();
+		pan_and_zoom.current!.zoom += state._delta[0];
+		console.log(state)
+	}, {
+		event: { passive: false },
+		target: pan_and_zoom_wrapper,
+	});
 
-        const resetZoom = () => { // FIXME this doesn't reset some damping factor
-        // meaning that the zooming speed gets all screwy
-            const paz = pan_and_zoom.current!;
-            paz.center = vec2.create();
-            paz.zoom = 1;
-        }
+	const resetZoom = () => { // TODO: FIXME this doesn't reset some damping factor
+	// meaning that the zooming speed gets all screwy
+		const paz = pan_and_zoom.current!;
+		paz.center = vec2.create();
+		paz.zoom = 1;
+	}
 
-        React.useEffect(() => {
-            resetZoom()
-        }, [listen_reset_my_zoom]);
+	// We just add 1 to RESET_MY_ZOOM in IR to reset zoom, so we just listen for when it changes
+	React.useEffect(() => {
+		resetZoom()
+	}, [listen_reset_my_zoom]);
 
 	return (
 		<div className="h-full bg-matcha-paper board_inner"

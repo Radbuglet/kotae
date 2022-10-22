@@ -18,7 +18,7 @@ export function OurSidebar({ target }: EntityViewProps) {
 
     const block_insertion_mode = target.deepGet(DEFAULT_INSERTION_MODE); // access the block insertion mode (math or regular text) from the IR
     const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
-    const reset_zoom = target.deepGet(RESET_MY_ZOOM); // 
+    const reset_zoom = target.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
 
     // swap block insertion mode (math or regular text)
     const doCycleInsertionMode = wrapWeakReceiver(block_insertion_mode, _ => {
