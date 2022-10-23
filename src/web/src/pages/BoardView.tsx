@@ -14,20 +14,33 @@ import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/
 
 
 export function BoardView({ target }: EntityViewProps) {
+
+        /*******************/
+        /****** STATE ******/
+        /*******************/
+        // this is the representation of our board inside the IR
 	const target_ir = target.get(IrBoard.KEY);
-	const frames = useListenable(target_ir.frames);
+	const frames = useListenable(target_ir.frames); // set up a listener for the frames
+        // this is the replacement for normal react state -- it will trigger a refresh when needed
+        // but don't set it directly!
 
-	const [selectedFrames, setSelectedFrames] = React.useState<(HTMLElement | SVGElement)[]>([]);
-	const [scrollOptions, setScrollOptions] = React.useState<DragScrollOptions>();
+	const [selectedFrames, setSelectedFrames] = React.useState<(HTMLElement | SVGElement)[]>([]); // helper state for selection
+	const [scrollOptions, setScrollOptions] = React.useState<DragScrollOptions>(); // also.. helper state for selecto. 
 
+        /******************/
+        /****** REFS ******/
+        /******************/
 	const moveableRef = React.useRef<Moveable>(null);
 	const selectoRef = React.useRef<Selecto>(null);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
-	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null); 
+	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
 
         // FIXME the zoom goes from the center of the screen
         // not the cursor!
 
+        /*********************/
+        /****** SIGNALS ******/
+        /*********************/
         const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
         const curr_select_active = useListenable(select_toggle); // TODO: make onkeydown for alt toggle this, and onkeyup reset it!
         // TODO: gotta figure out a global keybinding system. TODO TODO.
@@ -36,6 +49,14 @@ export function BoardView({ target }: EntityViewProps) {
         const reset_my_zoom = target.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
         const listen_reset_my_zoom = useListenable(reset_my_zoom); // how we read zoom reseting variable
 
+	// We just add 1 to RESET_MY_ZOOM in IR to reset zoom, so we just listen for when it changes
+	React.useEffect(() => {
+		resetZoom()
+	}, [listen_reset_my_zoom]);
+
+        /**********************/
+        /****** HANDLERS ******/
+        /**********************/
 	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
 		// Get clicked position
 		const paz = pan_and_zoom.current!;
@@ -66,10 +87,16 @@ export function BoardView({ target }: EntityViewProps) {
 		target_ir.frames.add(frame);
 	})
 
+        /***************************/
+        /****** ZOOMY SCROLLY ******/
+        /***************************/
 
 	// I'm not sure why we're doing useEffect on an empty array... - Nick
+        // lmao - not nick
 	React.useEffect(() => {
 		setScrollOptions({
+                        // this is all selecto stuff, from the examples.
+                        // it let's the selecto selection show up in the right place regardless of our current pan/zoom
 			container: pan_and_zoom.current!.viewport,
 			//getScrollPosition: () => {
 			//    return [
@@ -83,12 +110,12 @@ export function BoardView({ target }: EntityViewProps) {
 	}, []);
 
 	const bindPinch = usePinch((state) => {
-		state.event.preventDefault();
-		pan_and_zoom.current!.zoom += state._delta[0];
-		console.log(state)
+		state.event.preventDefault(); // prevent the whole page from zooming in
+		pan_and_zoom.current!.zoom += state._delta[0]; // add the delta. TODO idk if this is actually the right way to do this
+                // TODO also! this doesn't zoom from where the cursor is -- it zooms from the center. FIXME
 	}, {
-		event: { passive: false },
-		target: pan_and_zoom_wrapper,
+		event: { passive: false }, // react useGesture listener weirdness
+		target: pan_and_zoom_wrapper, // cont.
 	});
 
 	const resetZoom = () => { // TODO: FIXME this doesn't reset some damping factor
@@ -98,10 +125,6 @@ export function BoardView({ target }: EntityViewProps) {
 		paz.zoom = 1;
 	}
 
-	// We just add 1 to RESET_MY_ZOOM in IR to reset zoom, so we just listen for when it changes
-	React.useEffect(() => {
-		resetZoom()
-	}, [listen_reset_my_zoom]);
 
 	return (
 		<div className="h-full bg-matcha-paper board_inner"
@@ -122,40 +145,41 @@ export function BoardView({ target }: EntityViewProps) {
 					origin={false}
 					draggable={true}
 					target={selectedFrames}
-		i		//hideDefaultLines={true}
+				//hideDefaultLines={true}
 					onClickGroup={e => {
 						selectoRef.current!.clickTarget(e.inputEvent, e.inputTarget);
 					}}
 					onDrag={e => {
 						e.target.style.transform = e.transform;
 					}}
-					onDragGroup={e => {
-						e.events.forEach(ev => {
-							ev.target.style.transform = ev.transform;
-						});
-					}}
-                                    					onDragEnd={e => {
-						if (!e.isDrag) return;
+                                        onDragGroup={e => {
+                                            e.events.forEach(ev => {
+                                                ev.target.style.transform = ev.transform;
+                                            });
+                                        }}
+                                        onDragEnd={e => {
+                                            if (!e.isDrag) return;
 
-                                                const eid = e.target?.dataset["entityId"];
-                                                if (eid === undefined) return;
+                                            const eid = e.target?.dataset["entityId"];
+                                            if (eid === undefined) return;
 
-                                                // this is intentionally bad!
-                                                // until a better solution is found by @david.
-                                                let v = e.lastEvent.transform;
-                                                v = v.replace("translate(", "");
-                                                v = v.replace(")", "");
-                                                v = v.replace(/px/g, "").split(",");
+                                            // this is intentionally bad!
+                                            // until a better solution is found by @david.
+                                            let v = e.lastEvent.transform;
+                                            v = v.replace("translate(", "");
+                                            v = v.replace(")", "");
+                                            v = v.replace(/px/g, "").split(",");
 
-                                                const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
-						target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
-					}}
+                                            const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY); // update the locations in the IR
+                                            // when we are done dragging
+                                            target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])]; 
+                                        }}
 
 					onDragGroupEnd={e => {
 						const eid = e.target?.dataset["entityId"];
 						if (eid === undefined) return;
 
-						e.events.forEach(ev => {
+						e.events.forEach(ev => { // same as above but for an entire group of frames
 							let v = ev.lastEvent.transform;
 							v = v.replace("translate(", "");
 							v = v.replace(")", "");
@@ -182,13 +206,14 @@ export function BoardView({ target }: EntityViewProps) {
 				selectByClick={false}
 				selectFromInside={true}
 				toggleContinueSelect={["shift"]}
-				ratio={0}
+				ratio={0} // + L
 				{...(scrollOptions !== undefined ? { scrollOptions } : {})}
 
 				dragCondition={e => {
 					// TODO we need to think about the right thing here -- this is just temp.
 					// could / should be a mode on the sidebar
-					return (e.inputEvent.altKey || curr_select_active); // only drag if we have the alt key pressed
+					return (e.inputEvent.altKey || curr_select_active); // only drag if we have the alt key or the sidebar mode is active
+                                        // TODO make this sync to the sidebar onkeydown 
 				}}
 
 				onDragStart={e => {
@@ -214,7 +239,7 @@ export function BoardView({ target }: EntityViewProps) {
 					if (e.isDragStart) {
 						e.inputEvent.preventDefault();
 
-						setTimeout(() => {
+						setTimeout(() => { // haha this is example code. *clean*
 							moveable.dragStart(e.inputEvent);
 						});
 					}
