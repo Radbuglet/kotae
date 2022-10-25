@@ -13,9 +13,9 @@ import { DEFAULT_INSERTION_MODE } from "../blocks/factory";
 
 export function FrameView({ target }: EntityViewProps) {
 
-        /*******************/
-        /****** STATE ******/
-        /*******************/
+	/*******************/
+	/****** STATE ******/
+	/*******************/
 	const target_ir = target.get(IrFrame.KEY); // representation of the frame in IR
 	const target_frame = target.get(LayoutFrame.KEY); // twin representation which deals with layout
 
@@ -23,16 +23,16 @@ export function FrameView({ target }: EntityViewProps) {
 	const pos = useListenable(target_frame.position);
 
 
-        /******************/
-        /****** REFS ******/
-        /******************/
+	/******************/
+	/****** REFS ******/
+	/******************/
 	const frameRef = React.useRef<HTMLDivElement>(null);
 	const handleRef = React.useRef<HTMLDivElement>(null);
 
 
-        /*********************/
-        /****** SIGNALS ******/
-        /*********************/
+	/*********************/
+	/****** SIGNALS ******/
+	/*********************/
 
 	const block_insertion_mode = target.deepGet(DEFAULT_INSERTION_MODE);
 	const curr_ins_mode = useListenable(block_insertion_mode);
@@ -52,7 +52,7 @@ export function FrameView({ target }: EntityViewProps) {
 		target_ir.lines.push(line); // finally, add it to the frames lines
 
 		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
-                // based on the current insertion mode
+		// based on the current insertion mode
 		// Construct a new block through its factory and add it to the line.
 		const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
 		line_ir.blocks.push(block);
@@ -64,8 +64,8 @@ export function FrameView({ target }: EntityViewProps) {
 	});
 
 
-        // this code is for temp
-        // it's for deleting empty frames, allowing for free clicking around w/o cluttering
+	// this code is for temp
+	// it's for deleting empty frames, allowing for free clicking around w/o cluttering
 	const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
 		const isEmpty = (target_ir: IrFrame) => {
 			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]` 
@@ -90,19 +90,19 @@ export function FrameView({ target }: EntityViewProps) {
 			}
 
 
-                        if (first_block_text === undefined) { // for some reason the MathLive library blurs once on input, so we need to ignore that first blur
-                                let first_block_math = first_block.tryGet(MathBlock.KEY);
+			if (first_block_text === undefined) { // for some reason the MathLive library blurs once on input, so we need to ignore that first blur
+				let first_block_math = first_block.tryGet(MathBlock.KEY);
 
-                                if (first_block_math !== undefined) {
-                                    if (first_block_math.math.value === "") {
-                                        if (first_block_math.on_initialize.value) {
-                                            first_block_math.on_initialize.value = false;
-                                            return false
-                                        }
-                                        return true;
-                                    }
-                                }
-                        }
+				if (first_block_math !== undefined) {
+					if (first_block_math.math.value === "") {
+						if (first_block_math.on_initialize.value) {
+							first_block_math.on_initialize.value = false;
+							return false
+						}
+						return true;
+					}
+				}
+			}
 
 			return false;
 		};
@@ -213,7 +213,7 @@ export function LineView({ target }: EntityViewProps) {
 				const KindView = block_ir.kind.get(BLOCK_VIEW_KEY); // get the blocks view based on its kind
 
 				return <KindView target={block} />; // kindview is actually treated as a var here, and will resolve to the actual view!
-                                // #reactjank
+				// #reactjank
 			},
 		)}
 	</div>;

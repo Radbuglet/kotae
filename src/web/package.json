@@ -1,39 +1,39 @@
 {
-  "name": "kotae-web",
-  "version": "1.0.0",
-  "dependencies": {
-    "@tiptap/core": "^2.0.0-beta.199",
-    "@tiptap/react": "^2.0.0-beta.199",
-    "@tiptap/starter-kit": "^2.0.0-beta.199",
-    "@tiptap/suggestion": "^2.0.0-beta.199",
-    "css.gg": "^2.0.0",
-    "gl-matrix": "^3.4.3",
-    "kotae-common": "file:../common",
-    "kotae-util": "file:../util",
-    "mathlive": "^0.83.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-icons": "^4.4.0",
-    "react-math-view": "^1.3.2",
-    "react-moveable": "^0.39.3",
-    "react-pro-sidebar": "^1.0.0-alpha.6",
-    "react-selecto": "^1.20.2"
-  },
-  "devDependencies": {
-    "@tauri-apps/cli": "^1.1.1",
-    "@types/react": "^18.0.21",
-    "@types/react-dom": "^18.0.6",
-    "parcel": "^2.7.0",
-    "postcss": "^8.4.17",
-    "process": "^0.11.10",
-    "tailwindcss": "^3.1.8"
-  },
-  "scripts": {
-    "start": "parcel static/index.html",
-    "build": "parcel build static/index.html",
-    "tauri": "tauri",
-    "dev": "npm run tauri dev",
-    "bundle": "tauri build",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  }
+	"name": "kotae-web",
+	"version": "1.0.0",
+	"dependencies": {
+		"@tiptap/core": "^2.0.0-beta.199",
+		"@tiptap/react": "^2.0.0-beta.199",
+		"@tiptap/starter-kit": "^2.0.0-beta.199",
+		"@tiptap/suggestion": "^2.0.0-beta.199",
+		"css.gg": "^2.0.0",
+		"gl-matrix": "^3.4.3",
+		"kotae-common": "file:../common",
+		"kotae-util": "file:../util",
+		"mathlive": "^0.83.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+		"react-icons": "^4.4.0",
+		"react-math-view": "^1.3.2",
+		"react-moveable": "^0.39.3",
+		"react-pro-sidebar": "^1.0.0-alpha.6",
+		"react-selecto": "^1.20.2"
+	},
+	"devDependencies": {
+		"@tauri-apps/cli": "^1.1.1",
+		"@types/react": "^18.0.21",
+		"@types/react-dom": "^18.0.6",
+		"parcel": "^2.7.0",
+		"postcss": "^8.4.17",
+		"process": "^0.11.10",
+		"tailwindcss": "^3.1.8"
+	},
+	"scripts": {
+		"start": "parcel static/index.html",
+		"build": "parcel build static/index.html",
+		"tauri": "tauri",
+		"dev": "npm run tauri dev",
+		"bundle": "tauri build",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	}
 }

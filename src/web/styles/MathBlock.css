@@ -3,52 +3,50 @@
 /*}*/
 
 math-field {
-     /*--hue: var(--matcha-ink);*/
-     /*border: 12px solid var(--matcha-500) !important;*/
-    /*outine-style: none !important;*/
-    /*--contains-highlight-backround-color: var(--matcha-light);*/
+	/*--hue: var(--matcha-ink);*/
+	/*border: 12px solid var(--matcha-500) !important;*/
+	/*outine-style: none !important;*/
+	/*--contains-highlight-backround-color: var(--matcha-light);*/
 
-    /*--primary: var(--matcha-normal);*/
-    /*--smart-fence-color: red;*/
-    /*--caret: red;*/
-    /*--hue: 80;*/
-    /*--ML__caret-color: red !important;*/
-    /*--lightness: 0;*/
-    /*--smart-fence-color: red;*/
-    /*--primary: red;*/
-    /*caret-color: red;*/
-    /*--contains-highlight-backround-color: red;*/
-    /*--primary: red !important;*/
+	/*--primary: var(--matcha-normal);*/
+	/*--smart-fence-color: red;*/
+	/*--caret: red;*/
+	/*--hue: 80;*/
+	/*--ML__caret-color: red !important;*/
+	/*--lightness: 0;*/
+	/*--smart-fence-color: red;*/
+	/*--primary: red;*/
+	/*caret-color: red;*/
+	/*--contains-highlight-backround-color: red;*/
+	/*--primary: red !important;*/
 
-    --selection-background-color: var(--matcha-light) !important;
-    /*--selection-background-color-focused	: red;*/
-    /*--selection-color: red;*/
-    /*--selection-color-focused: red;*/
-    /*--selection-background-color-focused	: red;*/
-    /*--placeholder-color	: red;*/
-    /*max-height: 20px;*/
-    margin-top: -10px !important;
-    margin-bottom: -8px !important;
+	--selection-background-color: var(--matcha-light) !important;
+	/*--selection-background-color-focused	: red;*/
+	/*--selection-color: red;*/
+	/*--selection-color-focused: red;*/
+	/*--selection-background-color-focused	: red;*/
+	/*--placeholder-color	: red;*/
+	/*max-height: 20px;*/
+	margin-top: -10px !important;
+	margin-bottom: -8px !important;
 
 }
 
 .ML__container {
-    --ML__caret-color: red !important;
+	--ML__caret-color: red !important;
 }
 
 math-field:focus-within {
-    outline: 0px solid #d7170b;
-    /*border-radius: 4px;*/
-    /*background: rgba(251,	187,	182, .1);*/
+	outline: 0px solid #d7170b;
+	/*border-radius: 4px;*/
+	/*background: rgba(251,	187,	182, .1);*/
 }
 
 .ML__caret::after {
-    /*border: 12px solid red !important;*/
-    border-right: 12px solid red !important;
+	/*border: 12px solid red !important;*/
+	border-right: 12px solid red !important;
 }
 
 .ML__caret {
-    border: 12px solid red !important;
+	border: 12px solid red !important;
 }
-
-

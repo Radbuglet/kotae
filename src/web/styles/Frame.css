@@ -1,51 +1,51 @@
 .frame {
-    border-style: inset;
-    border: 1px solid transparent;
-    padding: 0.5rem;
-    border-radius: 2px;
+	border-style: inset;
+	border: 1px solid transparent;
+	padding: 0.5rem;
+	border-radius: 2px;
 
-    transition: border 0.3s;
-    transition: transform 0;
-    min-width: 3rem;
-    font-family: 'Inconsolata', monospace;
-    font-weight: 600;
-    @apply text-matcha-ink;
+	transition: border 0.3s;
+	transition: transform 0;
+	min-width: 3rem;
+	font-family: 'Inconsolata', monospace;
+	font-weight: 600;
+	@apply text-matcha-ink;
 }
 
 .frame:hover {
-    /*border: 1px solid lightBlue;*/
-    @apply border border-matcha-200;
+	/*border: 1px solid lightBlue;*/
+	@apply border border-matcha-200;
 }
 
 
 .frame-controls {
-    position: absolute;
-    display: flex;
-    left: -45px;
-    top: 12px;
-    opacity: 0;
-    transition: 0.3s;
-    flex-direction: row;
-    /*@apply space-x-1;*/
+	position: absolute;
+	display: flex;
+	left: -45px;
+	top: 12px;
+	opacity: 0;
+	transition: 0.3s;
+	flex-direction: row;
+	/*@apply space-x-1;*/
 }
 
 .frame:hover .frame-controls {
-    /*display: block;*/
-    opacity: 1;
+	/*display: block;*/
+	opacity: 1;
 }
 
 .control {
-    /*color: red;*/
-    transition: 0.2s;
-    padding: 2px;
-    border-radius: 2px;
-    @apply text-matcha-light-ink;
+	/*color: red;*/
+	transition: 0.2s;
+	padding: 2px;
+	border-radius: 2px;
+	@apply text-matcha-light-ink;
 }
 
 .control:hover {
-    @apply bg-matcha-highlight;
+	@apply bg-matcha-highlight;
 }
 
 .debug {
-    border: 1px solid red;
+	border: 1px solid red;
 }

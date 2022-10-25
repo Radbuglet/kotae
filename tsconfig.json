@@ -1,18 +1,18 @@
 {
-    "compilerOptions": {
-        "moduleResolution": "Node",
-        "target": "ES6",
-        "exactOptionalPropertyTypes": true,
-        "noImplicitAny": true,
-        "noImplicitOverride": true,
-        "noImplicitReturns": true,
-        "noImplicitThis": true,
-        "noPropertyAccessFromIndexSignature": true,
-        "noUncheckedIndexedAccess": true,
-        "strict": true,
-        "useUnknownInCatchVariables": true,
-        "forceConsistentCasingInFileNames": true,
-        "jsx": "react",
-        "allowSyntheticDefaultImports": true,
-    }
+	"compilerOptions": {
+		"moduleResolution": "Node",
+		"target": "ES6",
+		"exactOptionalPropertyTypes": true,
+		"noImplicitAny": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"noUncheckedIndexedAccess": true,
+		"strict": true,
+		"useUnknownInCatchVariables": true,
+		"forceConsistentCasingInFileNames": true,
+		"jsx": "react",
+		"allowSyntheticDefaultImports": true,
+	}
 }

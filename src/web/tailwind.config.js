@@ -19,7 +19,7 @@ module.exports = {
 
 					'dark': "#44624a",
 					'normal': "#8ba888",
-                                        'bluish': "#829D8F",
+					'bluish': "#829D8F",
 					'light': "#c0cfb2",
 					'paper': "#F6F4EE",
 					'ink': "#3C3B44",

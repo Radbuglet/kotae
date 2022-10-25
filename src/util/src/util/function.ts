@@ -3,5 +3,5 @@
 export type ArgsListOf<F> = F extends (...args: infer A) => unknown ? A : never;
 
 export function callFunc<F>(f: F, ...args: ArgsListOf<F>) {
-    (f as any)(...args);
+	(f as any)(...args);
 }
