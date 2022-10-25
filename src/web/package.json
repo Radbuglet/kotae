@@ -6,6 +6,7 @@
 		"@tiptap/react": "^2.0.0-beta.199",
 		"@tiptap/starter-kit": "^2.0.0-beta.199",
 		"@tiptap/suggestion": "^2.0.0-beta.199",
+		"@use-gesture/react": "^10.2.20",
 		"css.gg": "^2.0.0",
 		"gl-matrix": "^3.4.3",
 		"kotae-common": "file:../common",

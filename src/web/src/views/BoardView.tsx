@@ -2,78 +2,63 @@ import * as React from "react";
 import Selecto from "react-selecto";
 import Moveable from "react-moveable";
 import type { DragScrollOptions } from "@scena/dragscroll";
-import { vec2 } from "gl-matrix";
+import { mat3, vec2 } from "gl-matrix";
 import { Entity } from "kotae-util";
 import { IrBoard, IrFrame, LayoutFrame } from "kotae-common";
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
 import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
+import { usePinch } from '@use-gesture/react'
+import { SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
 import "../../styles/Board.css"
-import { useGesture, usePinch } from '@use-gesture/react'
-import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
 
+// TODO: make onkeydown for alt toggle selection mode, and onkeyup reset it!
 
-export function BoardView({ target }: EntityViewProps) {
+export function BoardView({ target: board }: EntityViewProps) {
+	//> State
+	const board_ir = board.get(IrBoard.KEY);
 
-	/*******************/
-	/****** STATE ******/
-	/*******************/
-	// this is the representation of our board inside the IR
-	const target_ir = target.get(IrBoard.KEY);
-	const frames = useListenable(target_ir.frames); // set up a listener for the frames
-	// this is the replacement for normal react state -- it will trigger a refresh when needed
-	// but don't set it directly!
+	// The set of frames contained by the board
+	const frames = useListenable(board_ir.frames);
 
-	const [selectedFrames, setSelectedFrames] = React.useState<(HTMLElement | SVGElement)[]>([]); // helper state for selection
-	const [scrollOptions, setScrollOptions] = React.useState<DragScrollOptions>(); // also.. helper state for selecto. 
+	// Whether the user is in "selection mode."
+	const is_selecting_val = board_ir.deepGet(SELECT_ACTIVE);
+	const is_selecting = useListenable(is_selecting_val);
 
-	/******************/
-	/****** REFS ******/
-	/******************/
-	const moveableRef = React.useRef<Moveable>(null);
-	const selectoRef = React.useRef<Selecto>(null);
+	// The list of actively selected frames
+	const [selectedFrames, setSelectedFrames] = React.useState<(HTMLElement | SVGElement)[]>([]);
+
+	// Late-bound `Selecto` properties
+	// TODO: research whether this late-binding is necessary
+	const [scrollOptions, setScrollOptions] = React.useState<DragScrollOptions>();
+
+	//> Refs
+	const moveable_ref = React.useRef<Moveable>(null);
+	const selecto_ref = React.useRef<Selecto>(null);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
 	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
 
-	// FIXME the zoom goes from the center of the screen
-	// not the cursor!
-
-	/*********************/
-	/****** SIGNALS ******/
-	/*********************/
-	const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
-	const curr_select_active = useListenable(select_toggle); // TODO: make onkeydown for alt toggle this, and onkeyup reset it!
-	// TODO: gotta figure out a global keybinding system. TODO TODO.
-
-
-	const reset_my_zoom = target.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
+	const reset_my_zoom = board.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
 	const listen_reset_my_zoom = useListenable(reset_my_zoom); // how we read zoom reseting variable
 
-	// We just add 1 to RESET_MY_ZOOM in IR to reset zoom, so we just listen for when it changes
+	// TODO
 	React.useEffect(() => {
 		resetZoom()
 	}, [listen_reset_my_zoom]);
 
-	/**********************/
-	/****** HANDLERS ******/
-	/**********************/
-	const handleClick = wrapWeakReceiver(target, (_, e: React.MouseEvent) => {
-		// Get clicked position
+	//> Handlers
+	const handleClick = wrapWeakReceiver(board, (_, e: React.MouseEvent) => {
+		// Ensure that the action is appropriate
 		const paz = pan_and_zoom.current!;
-		if (!paz.isHelperElement(e.target)) return;
+		if (!paz.isHelperElement(e.target)) return;  // Ignore if we're not clicking the background.
 
-		if (e.altKey || curr_select_active) return; // if we are selecting, don't create a new frame
+		if (is_selecting) return; // if we are selecting, don't create a new frame
 
-		const bb = paz.viewport.getBoundingClientRect();
-		const pos: vec2 = [
-			e.clientX - bb.left,
-			e.clientY - bb.top,
-		];
-
-		vec2.transformMat3(pos, pos, paz.computeViewportToWorldXform());
+		// Get clicked position
+		const pos = paz.xformWindowToWorld([e.clientX, e.clientY]);
 
 		// Construct the frame
-		const frame = new Entity(target_ir, "frame");
+		const frame = new Entity(board_ir, "frame");
 		const frame_ir = frame.add(new IrFrame(frame), [IrFrame.KEY]);
 		const frame_layout = frame.add(new LayoutFrame(frame), [LayoutFrame.KEY]);
 		frame_layout.position.value = pos;
@@ -84,20 +69,16 @@ export function BoardView({ target }: EntityViewProps) {
 			frame_ir.destroy();
 		});
 
-		target_ir.frames.add(frame);
+		board_ir.frames.add(frame);
 	})
 
-	/***************************/
-	/****** ZOOMY SCROLLY ******/
-	/***************************/
-
-	// I'm not sure why we're doing useEffect on an empty array... - Nick
-	// lmao - not nick
+	//> Late-bind selecto properties
 	React.useEffect(() => {
 		setScrollOptions({
 			// this is all selecto stuff, from the examples.
 			// it let's the selecto selection show up in the right place regardless of our current pan/zoom
 			container: pan_and_zoom.current!.viewport,
+
 			//getScrollPosition: () => {
 			//    return [
 			//        pan_and_zoom.current.getScrollLeft(),
@@ -109,26 +90,54 @@ export function BoardView({ target }: EntityViewProps) {
 		});
 	}, []);
 
-	const bindPinch = usePinch((state) => {
-		state.event.preventDefault(); // prevent the whole page from zooming in
-		pan_and_zoom.current!.zoom += state._delta[0]; // add the delta. TODO idk if this is actually the right way to do this
-		// TODO also! this doesn't zoom from where the cursor is -- it zooms from the center. FIXME
+	//> Setup zoom functionality
+	usePinch(state => {
+		const paz = pan_and_zoom.current!;
+		const { origin: origin_window, delta: [pinch_delta] } = state;
+
+		// Wrangle coordinate spaces
+		const viewport_bb = paz.viewport.getBoundingClientRect();
+		const origin_viewport: vec2 = [
+			origin_window[0] - viewport_bb.left,
+			origin_window[1] - viewport_bb.top,
+		];
+
+		// Zooming typically preserves the relative position of the zoom target. We implement this
+		// by observing the difference between the old `origin_world` and the new `origin_world` after
+		// the zoom factor has been updated.
+		const origin_world_old = vec2.transformMat3(
+			vec2.create(),
+			origin_viewport,
+			paz.computeViewportToWorldXform()
+		);
+
+		// Update zoom factor
+		paz.zoom = Math.max(paz.zoom + pinch_delta, 0.01);
+
+		// Ensure that the zoom target preserves the same relative position
+		const origin_world_new = vec2.transformMat3(
+			vec2.create(),
+			origin_viewport,
+			paz.computeViewportToWorldXform()
+		);
+
+		const world_delta = vec2.sub(vec2.create(), origin_world_old, origin_world_new);
+		paz.center = vec2.add(vec2.create(), paz.center, world_delta);
 	}, {
+		// TODO: research this "weirdness"
 		event: { passive: false }, // react useGesture listener weirdness
 		target: pan_and_zoom_wrapper, // cont.
 	});
 
-	const resetZoom = () => { // TODO: FIXME this doesn't reset some damping factor
-		// meaning that the zooming speed gets all screwy
+	const resetZoom = () => {
 		const paz = pan_and_zoom.current!;
 		paz.center = vec2.create();
 		paz.zoom = 1;
-	}
-
+	};
 
 	return (
-		<div className="h-full bg-matcha-paper board_inner"
-			{...bindPinch}
+		<div
+			className="h-full bg-matcha-paper board_inner"
 			ref={pan_and_zoom_wrapper}
 		>
 			<PanAndZoom
@@ -141,13 +150,13 @@ export function BoardView({ target }: EntityViewProps) {
 			>
 
 				<Moveable
-					ref={moveableRef}
+					ref={moveable_ref}
 					origin={false}
 					draggable={true}
 					target={selectedFrames}
 					//hideDefaultLines={true}
 					onClickGroup={e => {
-						selectoRef.current!.clickTarget(e.inputEvent, e.inputTarget);
+						selecto_ref.current!.clickTarget(e.inputEvent, e.inputTarget);
 					}}
 					onDrag={e => {
 						e.target.style.transform = e.transform;
@@ -199,7 +208,7 @@ export function BoardView({ target }: EntityViewProps) {
 			</PanAndZoom>
 
 			<Selecto
-				ref={selectoRef}
+				ref={selecto_ref}
 				dragContainer={".bg-matcha-paper"}
 				selectableTargets={[".frame"]}
 				hitRate={0} // might be better at 100. play around with this TODO
@@ -212,12 +221,12 @@ export function BoardView({ target }: EntityViewProps) {
 				dragCondition={e => {
 					// TODO we need to think about the right thing here -- this is just temp.
 					// could / should be a mode on the sidebar
-					return (e.inputEvent.altKey || curr_select_active); // only drag if we have the alt key or the sidebar mode is active
+					return (e.inputEvent.altKey || is_selecting); // only drag if we have the alt key or the sidebar mode is active
 					// TODO make this sync to the sidebar onkeydown 
 				}}
 
 				onDragStart={e => {
-					const moveable = moveableRef.current!;
+					const moveable = moveable_ref.current!;
 					const target = e.inputEvent.target;
 					// no idea what this is:
 					if (
@@ -235,7 +244,7 @@ export function BoardView({ target }: EntityViewProps) {
 
 				// or what this does. oh well!
 				onSelectEnd={e => {
-					const moveable = moveableRef.current!;
+					const moveable = moveable_ref.current!;
 					if (e.isDragStart) {
 						e.inputEvent.preventDefault();
 

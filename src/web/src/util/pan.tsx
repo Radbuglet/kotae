@@ -117,6 +117,21 @@ export class PanAndZoom extends React.Component<PanAndZoomProps, PanAndZoomState
 		return out;
 	}
 
+	computeWorldToViewportXform() {
+		const view_to_world = this.computeViewportToWorldXform();
+		return mat3.invert(view_to_world, view_to_world);
+	}
+
+	xformWindowToWorld(pos: ReadonlyVec2) {
+		const bb = this.viewport.getBoundingClientRect();
+		const target: vec2 = [
+			pos[0] - bb.left,
+			pos[1] - bb.top,
+		];
+
+		return vec2.transformMat3(target, target, this.computeViewportToWorldXform());
+	}
+
 	isHelperElement(target: EventTarget) {
 		return target === this.viewport ||
 			target === this.overflow ||

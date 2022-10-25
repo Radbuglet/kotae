@@ -1,11 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBoard } from './blocks/factory';
-import AppView from './pages/AppView';
+import AppView from './views/AppView';
 import '../styles/index.css';
 
-const root = ReactDOM.createRoot(document.getElementById('root')!);
+// Initialize model
 const board = createBoard();
+
+// Attach main React view
+const root = ReactDOM.createRoot(document.getElementById('root')!);
 
 root.render(<>
 	<React.StrictMode>

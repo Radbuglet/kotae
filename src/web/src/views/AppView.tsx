@@ -1,18 +1,14 @@
 import * as React from 'react';
-
-import '../../styles/App.css';
-import "../../styles/Background.css"
+import { ProSidebarProvider } from 'react-pro-sidebar';
+import { EntityViewProps } from '../util/hooks';
 import { OurSidebar } from './Sidebar';
 import { BoardView } from './BoardView';
-import { EntityViewProps } from '../util/hooks';
-import { ProSidebarProvider } from 'react-pro-sidebar';
-
+import '../../styles/App.css';
 
 export default function AppView({ target }: EntityViewProps) {
 	return (
 		<ProSidebarProvider>
-			<div className="bg-matcha-bluish the_background"
-			>
+			<div className="bg-matcha-bluish the_background">
 				{/** We wrap the sidebar in a div to get rid of a white border that the library creates. */}
 				<div
 					style={{
