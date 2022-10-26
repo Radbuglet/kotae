@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory"; // data we're accessing from IR
+import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../blocks/factory"; // data we're accessing from IR
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks"; // IR utilities
 import { Sidebar, Menu, MenuItem, useProSidebar } from 'react-pro-sidebar'; // sidebar library
 
@@ -18,7 +18,7 @@ export function OurSidebar({ target }: EntityViewProps) {
 
 	const block_insertion_mode = target.deepGet(DEFAULT_INSERTION_MODE); // access the block insertion mode (math or regular text) from the IR
 	const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
-	const reset_zoom = target.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
+	const reset_zoom = target.deepGet(ZOOM_RESET_SIGNAL); // access zoom resetting from the IR
 
 	// swap block insertion mode (math or regular text)
 	const doCycleInsertionMode = wrapWeakReceiver(block_insertion_mode, _ => {
@@ -34,14 +34,14 @@ export function OurSidebar({ target }: EntityViewProps) {
 
 	// calling this will cause zoom to reset via IR
 	const doTriggerResetZoom = wrapWeakReceiver(reset_zoom, _ => {
-		reset_zoom.value += 1;
+		reset_zoom.fire();
 	});
 
 	const curr_ins_mode = useListenable(block_insertion_mode); // how we read block insertion mode 
 	const curr_select_active = useListenable(select_toggle); // how we read toggling selecto 
 
 	return (<>
-		{/** All of these attributes of sidebar are self-explanatory, except that trainsitionDuration is # of ms to animate collapse/expand. */}
+		{/** All of these attributes of sidebar are self-explanatory, except that transitionDuration is # of ms to animate collapse/expand. */}
 		{/** We had the styling to override a white border the library creates. */}
 		<Sidebar defaultCollapsed={true} backgroundColor="var(--matcha-bluish)" transitionDuration={250} collapsedWidth="60px" width="200px"
 			className="sidebar" style={{ borderRight: "2px solid var(--matcha-bluish)", userSelect: "none" }}>

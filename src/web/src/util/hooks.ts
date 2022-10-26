@@ -1,7 +1,19 @@
-import { Bindable, callFunc, Entity, IListenable, Weak } from "kotae-util";
+import { Bindable, callFunc, Entity, IListenable, Signal, Weak } from "kotae-util";
 import { useSyncExternalStore, useEffect } from "react";
 
 export type EntityViewProps = Readonly<{ target: Entity }>;
+
+export function useSignal<F>(signal: Signal<F>, handler: F) {
+	useEffect(() => {
+		const connection = signal.connect(null, handler);
+
+		return () => {
+			if (connection.is_alive) {
+				connection.destroy();
+			}
+		};
+	}, []);
+}
 
 export function useListenable<T>(target: IListenable<T>): T {
 	return useSyncExternalStore(

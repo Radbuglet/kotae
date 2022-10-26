@@ -1,11 +1,17 @@
-import { Entity, ListenValue, TypedKey } from "kotae-util";
+import { Entity, ListenValue, Signal, TypedKey } from "kotae-util";
 import { BlockRegistry, IrBoard } from "kotae-common";
 import { createRegistry as createBlockRegistry } from './registry';
 
-// I'm not sure why these are numbers, when we use them as booleans (only either 0 or 1)... - Nick
-export const DEFAULT_INSERTION_MODE = new TypedKey<ListenValue<number>>("DEFAULT_INSERTION_MODE"); // Are we inserting math or regular text?
-export const SELECT_ACTIVE = new TypedKey<ListenValue<number>>("SELECT_ACTIVE"); // Is selecto toggled on?
-export const RESET_MY_ZOOM = new TypedKey<ListenValue<number>>("RESET_MY_ZOOM"); // Resets zoom and pan.
+// A property of the board indicating the index in the block registry of the next block to spawn.
+// TODO: In the future, this should use IDs and should not be hardcoded. This was a temp hack.
+export const DEFAULT_INSERTION_MODE = new TypedKey<ListenValue<number>>("DEFAULT_INSERTION_MODE");
+
+// A property of the board indicating whether the user is in select mode.
+// TODO: This should be a boolean.
+export const SELECT_ACTIVE = new TypedKey<ListenValue<number>>("SELECT_ACTIVE");
+
+// A signal of the board used by the sidebar to reset the zoom level
+export const ZOOM_RESET_SIGNAL = new TypedKey<Signal<() => void>>("RESET_MY_ZOOM");
 
 export function createBoard() {
 	const board = new Entity(null, "board");
@@ -14,7 +20,7 @@ export function createBoard() {
 
 	board.add(new ListenValue<number>(board, 0), [DEFAULT_INSERTION_MODE]);
 	board.add(new ListenValue<number>(board, 0), [SELECT_ACTIVE]);
-	board.add(new ListenValue<number>(board, 0), [RESET_MY_ZOOM]);
+	board.add(new Signal<() => void>(board), [ZOOM_RESET_SIGNAL]);
 
 	board.setFinalizer(() => {
 		registry.destroy();

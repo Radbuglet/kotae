@@ -2,14 +2,14 @@ import * as React from "react";
 import Selecto from "react-selecto";
 import Moveable from "react-moveable";
 import type { DragScrollOptions } from "@scena/dragscroll";
+import { usePinch } from '@use-gesture/react'
 import { mat3, vec2 } from "gl-matrix";
 import { Entity } from "kotae-util";
 import { IrBoard, IrFrame, LayoutFrame } from "kotae-common";
-import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks";
+import { EntityViewProps, useListenable, useSignal, wrapWeakReceiver } from "../util/hooks";
 import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
-import { usePinch } from '@use-gesture/react'
-import { SELECT_ACTIVE, RESET_MY_ZOOM } from "../blocks/factory";
+import { SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../blocks/factory";
 import "../../styles/Board.css"
 
 // TODO: make onkeydown for alt toggle selection mode, and onkeyup reset it!
@@ -29,22 +29,13 @@ export function BoardView({ target: board }: EntityViewProps) {
 	const [selectedFrames, setSelectedFrames] = React.useState<(HTMLElement | SVGElement)[]>([]);
 
 	// Late-bound `Selecto` properties
-	// TODO: research whether this late-binding is necessary
-	const [scrollOptions, setScrollOptions] = React.useState<DragScrollOptions>();
+	const [selectoProps, setSelectoProps] = React.useState<DragScrollOptions>();
 
 	//> Refs
 	const moveable_ref = React.useRef<Moveable>(null);
 	const selecto_ref = React.useRef<Selecto>(null);
 	const pan_and_zoom = React.useRef<PanAndZoom>(null);
 	const pan_and_zoom_wrapper = React.useRef<HTMLDivElement>(null);
-
-	const reset_my_zoom = board.deepGet(RESET_MY_ZOOM); // access zoom reseting from the IR
-	const listen_reset_my_zoom = useListenable(reset_my_zoom); // how we read zoom reseting variable
-
-	// TODO
-	React.useEffect(() => {
-		resetZoom()
-	}, [listen_reset_my_zoom]);
 
 	//> Handlers
 	const handleClick = wrapWeakReceiver(board, (_, e: React.MouseEvent) => {
@@ -74,17 +65,10 @@ export function BoardView({ target: board }: EntityViewProps) {
 
 	//> Late-bind selecto properties
 	React.useEffect(() => {
-		setScrollOptions({
-			// this is all selecto stuff, from the examples.
-			// it let's the selecto selection show up in the right place regardless of our current pan/zoom
+		// We late-bind these properties because we need access to `pan_and_zoom`, which is only
+		// acquired after the component has first rendered. FIXME: can we remove this late binding
+		setSelectoProps({
 			container: pan_and_zoom.current!.viewport,
-
-			//getScrollPosition: () => {
-			//    return [
-			//        pan_and_zoom.current.getScrollLeft(),
-			//        pan_and_zoom.current.getScrollTop(),
-			//    ];
-			//},
 			throttleTime: 30,
 			threshold: 0,
 		});
@@ -112,6 +96,8 @@ export function BoardView({ target: board }: EntityViewProps) {
 		);
 
 		// Update zoom factor
+		// TODO: A given `pinch_delta` should always reveal/hide a constant area, regardless of scale
+		// factor.
 		paz.zoom = Math.max(paz.zoom + pinch_delta, 0.01);
 
 		// Ensure that the zoom target preserves the same relative position
@@ -135,6 +121,11 @@ export function BoardView({ target: board }: EntityViewProps) {
 		paz.zoom = 1;
 	};
 
+	useSignal(board.deepGet(ZOOM_RESET_SIGNAL), () => {
+		resetZoom();
+	});
+
+	//> Render the component
 	return (
 		<div
 			className="h-full bg-matcha-paper board_inner"
@@ -216,7 +207,7 @@ export function BoardView({ target: board }: EntityViewProps) {
 				selectFromInside={true}
 				toggleContinueSelect={["shift"]}
 				ratio={0} // + L
-				{...(scrollOptions !== undefined ? { scrollOptions } : {})}
+				{...(selectoProps !== undefined ? { scrollOptions: selectoProps } : {})}
 
 				dragCondition={e => {
 					// TODO we need to think about the right thing here -- this is just temp.
