@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Entity, Part } from "kotae-util";
-import { EntityViewProps, useListenable } from "../util/hooks";
+import { EntityViewProps, useListenable } from "../../util/hooks";
 import { BlockRegistry, IrBlock, TextBlock, IrLine, IrFrame } from "kotae-common";
-import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./registry";
+import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./../registry";
 
 export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "text block kind");

@@ -8,8 +8,8 @@ import type { OnDrag } from "react-moveable";
 
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
-import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../blocks/registry";
-import { DEFAULT_INSERTION_MODE } from "../blocks/factory";
+import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../model/registry";
+import { DEFAULT_INSERTION_MODE } from "../model/board";
 
 export function FrameView({ target }: EntityViewProps) {
 

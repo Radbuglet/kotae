@@ -3,8 +3,8 @@ import { Entity, Part, TypedKey } from "kotae-util";
 import React from "react";
 import { EntityViewProps } from "../util/hooks";
 
-import * as TextBlock from "./text_block";
-import * as MathBlock from "./math_block";
+import * as TextBlock from "./blocks/text_block";
+import * as MathBlock from "./blocks/math_block";
 
 export const BLOCK_VIEW_KEY = new TypedKey<React.FC<EntityViewProps>>("BLOCK_VIEW_KEY");
 

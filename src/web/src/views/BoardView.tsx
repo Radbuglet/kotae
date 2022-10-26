@@ -9,7 +9,7 @@ import { IrBoard, IrFrame, LayoutFrame } from "kotae-common";
 import { EntityViewProps, useListenable, useSignal, wrapWeakReceiver } from "../util/hooks";
 import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
-import { SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../blocks/factory";
+import { SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../model/board";
 import "../../styles/Board.css"
 
 // TODO: make onkeydown for alt toggle selection mode, and onkeyup reset it!

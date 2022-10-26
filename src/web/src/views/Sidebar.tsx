@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../blocks/factory"; // data we're accessing from IR
+import { DEFAULT_INSERTION_MODE, SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../model/board"; // data we're accessing from IR
 import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks"; // IR utilities
 import { Sidebar, Menu, MenuItem, useProSidebar } from 'react-pro-sidebar'; // sidebar library
 

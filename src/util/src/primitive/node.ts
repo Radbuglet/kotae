@@ -40,7 +40,7 @@ export class Bindable {
 		};
 
 		return new Proxy(backing, {
-			get(target, key) {
+			get(target, key, receiver) {
 				assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
 
 				if (key === UNSAFE_BINDABLE_BACKING) {
@@ -48,14 +48,20 @@ export class Bindable {
 				}
 
 				// Safety: provided by type checker
-				return (backing as any)[key];
+
+				// N.B. This ensures that custom setters will interpret `this` as the proxy rather
+				// than the underlying target.
+				return Reflect.get(target, key, receiver);
 			},
-			set(target, key, value) {
+			set(target, key, value, receiver) {
 				assert(can_access(target, key), "Attempted to access", key, "from finalized bindable", target);
 
-				(target as any)[key] = value;
-				return true;
-			}
+				// Safety: provided by type checker
+
+				// N.B. This ensures that custom setters will interpret `this` as the proxy rather
+				// than the underlying target.
+				return Reflect.set(target, key, value, receiver);
+			},
 		});
 	}
 
@@ -76,7 +82,7 @@ export class Bindable {
 //> Part
 let PART_ID_GEN = 0;
 
-const PART_ID_MAP = (window as any)["PART_ID_MAP"] = new Map<number, Part>();
+const PART_ID_MAP = (globalThis as any)["KOTAE_DBG_PART_ID_MAP"] = new Map<number, Part>();
 
 export type Finalizer = () => void;
 
@@ -98,7 +104,15 @@ export class Part extends Bindable {
 			return;
 		}
 
-		// TODO: Detect recursive trees
+		// Ignore redundant requests
+		if (this.parent === new_parent) return;
+
+		// Prevent parent chain cycles
+		assert(
+			new_parent === null
+			|| !this.isAncestorOf(new_parent),
+			"cannot parent part", this, "to its descendant", new_parent,
+		);
 
 		// Update `Part.children`
 		if (this.parent_ !== null) {

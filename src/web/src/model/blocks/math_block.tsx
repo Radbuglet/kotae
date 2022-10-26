@@ -1,12 +1,10 @@
 import * as React from "react";
 import { Entity, Part } from "kotae-util";
-import { EntityViewProps, useListenable } from "../util/hooks";
+import { EntityViewProps, useListenable } from "../../util/hooks";
 import { IrBlock, IrFrame, IrLine, MathBlock, BlockRegistry } from "kotae-common";
-import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./registry";
-//import { MathfieldElement } from "mathlive";
-//import { MathfieldComponent } from "react-mathlive";
+import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "../registry";
 import MathView, { MathViewRef } from 'react-math-view';
-import "../../styles/MathBlock.css";
+import "../../../styles/MathBlock.css";
 
 export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "math block kind");

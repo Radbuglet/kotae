@@ -30,7 +30,7 @@ export const IterExt = new class {
 	}
 
 	has<T>(iter: Iterable<T>, value: T): boolean {
-		return this.any(iter, v => v === value) !== null;
+		return this.any(iter, v => v === value);
 	}
 
 	*map<T, R>(iter: Iterable<T>, map: (value: T) => R): IterableIterator<R> {

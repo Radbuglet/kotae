@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBoard } from './blocks/factory';
+import { createBoard } from './model/board';
 import AppView from './views/AppView';
 import '../styles/index.css';
 
