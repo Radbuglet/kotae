@@ -5,6 +5,7 @@ import { EntityViewProps } from "../util/hooks";
 
 import * as TextBlock from "./blocks/text_block";
 import * as MathBlock from "./blocks/math_block";
+import * as ScryBlock from "./blocks/latex_scry";
 
 export const BLOCK_VIEW_KEY = new TypedKey<React.FC<EntityViewProps>>("BLOCK_VIEW_KEY");
 
@@ -22,6 +23,7 @@ export function createRegistry(parent: Part | null) {
 	const block_registry = new BlockRegistry(parent);
 	block_registry.registerKind(TextBlock.createKind(block_registry));
 	block_registry.registerKind(MathBlock.createKind(block_registry));
+	block_registry.registerKind(ScryBlock.createKind(block_registry));
 
 	return block_registry;
 }
