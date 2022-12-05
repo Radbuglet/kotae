@@ -47,7 +47,7 @@ async function GetTeXResult(positions) {
     "body": "strokes=`${encodeURIComponent(positions.toString())}`",
     "method": "POST"
     });
-    return response.json().filter(element => element.symbol.package != undefined).slice(0, 5).filter(element => element.symbol.command);
+    return response.json().filter(element => element.symbol.package != undefined).filter(element => element.symbol.mathmode).slice(0, 5).filter(element => element.symbol.command);
 }
 
 function ScryBlockView({ target }: EntityViewProps) {
