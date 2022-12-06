@@ -3,6 +3,7 @@ import { Entity, Part } from "kotae-util";
 import { EntityViewProps, useListenable } from "../../util/hooks";
 import { BlockRegistry, IrBlock, ScryBlock, IrLine, IrFrame } from "kotae-common";
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./../registry";
+import "../../../styles/ScryBlock.css"
 
 const Canvas = props => {
 
@@ -54,9 +55,9 @@ const Canvas = props => {
 
     }, [])
 
-    return <>
+    return <div className="canv">
         <canvas ref={props.canvasRef} {...props}/>
-        <div className="border-red-4 border-2"
+        <div className="canv_button"
             onClick={() => { 
                 const canvas = props.canvasRef.current;
                 const context = canvas.getContext('2d')
@@ -64,7 +65,12 @@ const Canvas = props => {
                 paths = [];
             }}
         > clear </div>
-    </>
+
+        <div className="canv_button"
+            onClick={() => { 
+            }}
+        > scry </div>
+    </div>
 }
 
 export function createKind(parent: Part | null) {
@@ -130,7 +136,6 @@ function ScryBlockView({ target }: EntityViewProps) {
             ref={block_ref}
 	>
             <Canvas canvasRef={canvas_ref} />
-
 	</div>;
 }
 
