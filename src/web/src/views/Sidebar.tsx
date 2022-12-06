@@ -14,7 +14,7 @@ import { TbMathAvg } from 'react-icons/tb';
 
 export function OurSidebar({ target }: EntityViewProps) {
 	const { collapseSidebar } = useProSidebar(); // allows us to expand/minimize sidebar
-	const [expanded, setExpanded] = React.useState(false); // is the sidebar expanded or minimized
+	const [expanded, setExpanded] = React.useState(true); // is the sidebar expanded or minimized
 
 	const block_insertion_mode = target.deepGet(DEFAULT_INSERTION_MODE); // access the block insertion mode (math or regular text) from the IR
 	const select_toggle = target.deepGet(SELECT_ACTIVE); // access whether or not we are toggling selecto from the IR
@@ -43,7 +43,7 @@ export function OurSidebar({ target }: EntityViewProps) {
 	return (<>
 		{/** All of these attributes of sidebar are self-explanatory, except that transitionDuration is # of ms to animate collapse/expand. */}
 		{/** We had the styling to override a white border the library creates. */}
-		<Sidebar defaultCollapsed={true} backgroundColor="var(--matcha-bluish)" transitionDuration={250} collapsedWidth="60px" width="200px"
+		<Sidebar defaultCollapsed={false} backgroundColor="var(--matcha-bluish)" transitionDuration={250} collapsedWidth="60px" width="200px"
 			className="sidebar" style={{ borderRight: "2px solid var(--matcha-bluish)", userSelect: "none" }}>
 			<Menu
 				className="flex flex-col content-center mt-4 -ml-1"
@@ -93,7 +93,7 @@ export function OurSidebar({ target }: EntityViewProps) {
 					:
 					<BiText size={25} />
 				} onClick={doCycleInsertionMode}>
-					{curr_ins_mode ? "Text mode" : "Math mode"}
+					{curr_ins_mode ? "Math mode" : "Text mode"}
 				</MenuItem>
 
 				{/** Active property will show an indicator for when selecto is on. */}
