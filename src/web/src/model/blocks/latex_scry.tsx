@@ -3,6 +3,75 @@ import { Entity, Part } from "kotae-util";
 import { EntityViewProps, useListenable } from "../../util/hooks";
 import { BlockRegistry, IrBlock, ScryBlock, IrLine, IrFrame } from "kotae-common";
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./../registry";
+import "../../../styles/ScryBlock.css"
+
+const Canvas = props => {
+
+    let paths = [];
+    let local_path = [];
+
+    React.useEffect(() => {
+        const canvas = props.canvasRef.current
+        const context = canvas.getContext('2d')
+        //Our first draw
+        context.lineWidth = 5;
+        let x = 0, y = 0;
+        let isMouseDown = false;
+
+        const stopDrawing = () => { 
+            isMouseDown = false;
+            if (local_path.length > 0) {
+                paths.push(local_path);
+                local_path = [];
+                console.log(paths);
+            }
+        }
+        const startDrawing = event => {
+            isMouseDown = true;   
+            [x, y] = [event.offsetX, event.offsetY];  
+        }
+        const drawLine = event => {
+            if ( isMouseDown ) {
+                const newX = event.offsetX;
+                const newY = event.offsetY;
+                context.beginPath();
+                context.moveTo( x, y );
+                context.lineTo( newX, newY );
+                context.stroke();
+                x = newX;
+                y = newY;
+                local_path.push({
+                    "x": x, 
+                    "y": y,
+                    "t": Date.now()
+                })
+            }
+        }
+
+        canvas.addEventListener( 'mousedown', startDrawing );
+        canvas.addEventListener( 'mousemove', drawLine );
+        canvas.addEventListener( 'mouseup', stopDrawing );
+        canvas.addEventListener( 'mouseout', stopDrawing );
+
+    }, [])
+
+    return <div className="canv">
+        <canvas ref={props.canvasRef} {...props}/>
+        <div className="canv_button"
+            onClick={() => { 
+                const canvas = props.canvasRef.current;
+                const context = canvas.getContext('2d')
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                paths = [];
+            }}
+        > clear </div>
+
+        <div className="canv_button"
+            onClick={() => { 
+            }}
+        > scry </div>
+    </div>
+}
 
 export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "scry block kind");
@@ -54,18 +123,21 @@ async function GetTeXResult(positions) {
 function ScryBlockView({ target }: EntityViewProps) {
 	const target_ir = target.get(ScryBlock.KEY);
 	const text = useListenable(target_ir.text);
+        
+        const canvas_ref = React.useRef(null);
 
 	const block_ref = React.useRef<HTMLDivElement>(null);
 
 	React.useEffect(() => {
 		block_ref.current!.focus();
-	}, []);
+        }, []);
 
 
 	return <div
             ref={block_ref}
 	>
-            wheeeeeeeeeeeeeeeeeeeeeeeeeeee!
+            <Canvas canvasRef={canvas_ref} />
 	</div>;
 }
+
 

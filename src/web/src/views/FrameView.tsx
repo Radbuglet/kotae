@@ -53,6 +53,7 @@ export function FrameView({ target }: EntityViewProps) {
 
 		//const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
 		const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[2]!; // get the kind of block we want to insert
+                // TODO deleting blocks breaks??
 		// based on the current insertion mode
 		// Construct a new block through its factory and add it to the line.
 		const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
