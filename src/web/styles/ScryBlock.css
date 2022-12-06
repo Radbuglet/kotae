@@ -1,0 +1,23 @@
+.canv {
+}
+
+.canv:hover {
+	/*border: 1px solid lightBlue;*/
+}
+
+
+.canv_button {
+	/*position: absolute;*/
+	/*display: flex;*/
+	/*left: -45px;*/
+	/*top: 12px;*/
+        opacity: 0;
+	/*transition: 0.3s;*/
+	/*flex-direction: row;*/
+	/*[>@apply space-x-1;<]*/
+}
+
+.canv:hover .canv_button{
+	/*display: block;*/
+	opacity: 1;
+}
