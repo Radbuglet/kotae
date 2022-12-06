@@ -1,4 +1,4 @@
-import * as React from "react";
+mport * as React from "react";
 import { Entity, Part } from "kotae-util";
 import { EntityViewProps, useListenable } from "../../util/hooks";
 import { BlockRegistry, IrBlock, ScryBlock, IrLine, IrFrame } from "kotae-common";
@@ -28,7 +28,7 @@ export function createKind(parent: Part | null) {
 }
 
 async function GetTeXResult(positions) {
-    const repsonse = await fetch("https://detexify.kirelabs.org/api/classify", {
+    const response = await fetch("https://detexify.kirelabs.org/api/classify", {
     "headers": {
 	"accept": "application/json, text/javascript, */*; q=0.01",
 	"accept-language": "en-US,en;q=0.9",
@@ -47,6 +47,7 @@ async function GetTeXResult(positions) {
     "body": "strokes=`${encodeURIComponent(positions.toString())}`",
     "method": "POST"
     });
+    console.log(await response.json())
     return response.json().filter(element => element.symbol.package != undefined).filter(element => element.symbol.mathmode).slice(0, 5).filter(element => element.symbol.command);
 }
 
