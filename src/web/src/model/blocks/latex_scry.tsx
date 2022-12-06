@@ -14,8 +14,6 @@ const Canvas = props => {
         const context = canvas.getContext('2d')
         //Our first draw
         context.lineWidth = 5;
-
-
         let x = 0, y = 0;
         let isMouseDown = false;
 
@@ -56,7 +54,17 @@ const Canvas = props => {
 
     }, [])
 
-    return <canvas ref={props.canvasRef} {...props}/>
+    return <>
+        <canvas ref={props.canvasRef} {...props}/>
+        <div className="border-red-4 border-2"
+            onClick={() => { 
+                const canvas = props.canvasRef.current;
+                const context = canvas.getContext('2d')
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                paths = [];
+            }}
+        > clear </div>
+    </>
 }
 
 export function createKind(parent: Part | null) {
@@ -123,11 +131,6 @@ function ScryBlockView({ target }: EntityViewProps) {
 	>
             <Canvas canvasRef={canvas_ref} />
 
-            <div className="border-red-4 border-2"
-                onClick={() => { 
-                    draw.clear()
-                }}
-            > clear </div>
 	</div>;
 }
 
