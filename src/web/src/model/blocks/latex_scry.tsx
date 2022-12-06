@@ -13,8 +13,13 @@ const Canvas = props => {
     React.useEffect(() => {
         const canvas = props.canvasRef.current
         const context = canvas.getContext('2d')
-        //Our first draw
+
         context.lineWidth = 5;
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        //context.imageSmoothingEnabled = false;
+
+
         let x = 0, y = 0;
         let isMouseDown = false;
 
@@ -56,7 +61,9 @@ const Canvas = props => {
     }, [])
 
     return <div className="canv">
-        <canvas ref={props.canvasRef} {...props}/>
+        <canvas ref={props.canvasRef} {...props}
+            className="border-0 border-red-500 actual_canvas_el"
+        />
         <div className="canv_button"
             onClick={() => { 
                 const canvas = props.canvasRef.current;
