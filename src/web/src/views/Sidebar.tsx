@@ -43,7 +43,7 @@ export function OurSidebar({ target }: EntityViewProps) {
 	return (<>
 		{/** All of these attributes of sidebar are self-explanatory, except that transitionDuration is # of ms to animate collapse/expand. */}
 		{/** We had the styling to override a white border the library creates. */}
-		<Sidebar defaultCollapsed={false} backgroundColor="var(--matcha-bluish)" transitionDuration={250} collapsedWidth="60px" width="200px"
+		<Sidebar defaultCollapsed={!expanded} backgroundColor="var(--matcha-bluish)" transitionDuration={250} collapsedWidth="60px" width="200px"
 			className="sidebar" style={{ borderRight: "2px solid var(--matcha-bluish)", userSelect: "none" }}>
 			<Menu
 				className="flex flex-col content-center mt-4 -ml-1"
