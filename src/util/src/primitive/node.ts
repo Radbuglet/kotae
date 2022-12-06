@@ -36,6 +36,7 @@ export class Bindable {
 		const can_access = (target: this, key: string | symbol) => {
 			return target.is_alive_ ||
 				key === "is_alive" ||
+                                key === "is_alive_" ||
 				key === UNSAFE_BINDABLE_BACKING;
 		};
 
