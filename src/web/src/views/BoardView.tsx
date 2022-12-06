@@ -63,6 +63,11 @@ export function BoardView({ target: board }: EntityViewProps) {
 		board_ir.frames.add(frame);
 	})
 
+	// listens for when user toggles selecto, if they toggled it off deselect selected blocks
+	React.useEffect(() => {
+		if (!is_selecting) setSelectedFrames([]);
+	}, [is_selecting])
+
 	//> Late-bind selecto properties
 	React.useEffect(() => {
 		// We late-bind these properties because we need access to `pan_and_zoom`, which is only
