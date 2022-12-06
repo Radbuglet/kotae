@@ -2,26 +2,40 @@
 }
 
 
-.canv_button {
-	/*position: absolute;*/
-	/*display: flex;*/
-	/*left: -45px;*/
-	/*top: 12px;*/
-        opacity: 0;
-        transition: 0.3s;
-	/*flex-direction: row;*/
-	/*[>@apply space-x-1;<]*/
+.scry_buttons {
+    position: absolute;
+    display: flex;
+    right: -30px;
+    top: 8px;
+    opacity: 0;
+    transition: 0.3s;
+    flex-direction: column;
+    /*@apply space-y-1;*/
 }
 
-.canv:hover .canv_button{
+.canv:hover .scry_buttons{
 	/*display: block;*/
 	opacity: 1;
 }
 
-.canv_button:hover {
+.scry_buttons:hover {
     opacity: 1;
 }
 
 .actual_canvas_el {
     /*transform: scale(0.5);*/
+}
+
+
+
+.scry_control {
+	/*color: red;*/
+	transition: 0.2s;
+	padding: 3px;
+	border-radius: 2px;
+	@apply text-matcha-light-ink;
+}
+
+.scry_control:hover {
+	@apply bg-matcha-highlight;
 }

@@ -5,6 +5,10 @@ import { BlockRegistry, IrBlock, ScryBlock, IrLine, IrFrame } from "kotae-common
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./../registry";
 import "../../../styles/ScryBlock.css"
 
+import { RiRefreshLine } from "react-icons/Ri";
+import { FaSearch } from "react-icons/Fa";
+
+
 const Canvas = props => {
 
     let paths = [];
@@ -13,11 +17,12 @@ const Canvas = props => {
     React.useEffect(() => {
         const canvas = props.canvasRef.current
         const context = canvas.getContext('2d')
-
+        
         context.lineWidth = 5;
         context.lineCap = 'round';
         context.lineJoin = 'round';
         //context.imageSmoothingEnabled = false;
+        context.strokeStyle = "#3C3B44";
 
 
         let x = 0, y = 0;
@@ -61,22 +66,28 @@ const Canvas = props => {
     }, [])
 
     return <div className="canv">
+        <div className="scry_buttons">
+            <div className="scry_control"
+                onClick={() => { 
+                    const canvas = props.canvasRef.current;
+                    const context = canvas.getContext('2d')
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    paths = [];
+                }}
+            > <RiRefreshLine /> </div>
+
+            <div className="scry_control"
+                onClick={() => { 
+                }}
+            > <FaSearch 
+                style={{marginLeft: 2}}
+            /> </div>
+        </div>
         <canvas ref={props.canvasRef} {...props}
             className="border-0 border-red-500 actual_canvas_el"
+            //width={250}
+            //height={250}
         />
-        <div className="canv_button"
-            onClick={() => { 
-                const canvas = props.canvasRef.current;
-                const context = canvas.getContext('2d')
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                paths = [];
-            }}
-        > clear </div>
-
-        <div className="canv_button"
-            onClick={() => { 
-            }}
-        > scry </div>
 	
     </div>
 }
