@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Entity, Part } from "kotae-util";
-import { EntityViewProps, useListenable } from "../../util/hooks";
-import { BlockRegistry, IrBlock, ScryBlock, IrLine, IrFrame } from "kotae-common";
+import { EntityViewProps, useListenable, wrapWeakReceiver } from "../../util/hooks";
+import { BlockRegistry, IrBlock, ScryBlock, IrLine, IrFrame, MathBlock } from "kotae-common";
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "./../registry";
 import "../../../styles/ScryBlock.css"
 
@@ -12,13 +12,14 @@ import { FaSearch } from "react-icons/Fa";
 
 const Canvas = props => {
 
-    let paths = [];
+    // TODO TODO FIXME FIXME FIXME
+    let paths = []; // make this state! otherwise, clears on rerender
     let local_path = [];
 
     React.useEffect(() => {
         const canvas = props.canvasRef.current
         const context = canvas.getContext('2d')
-        
+
         context.lineWidth = 5;
         context.lineCap = 'round';
         context.lineJoin = 'round';
@@ -29,17 +30,16 @@ const Canvas = props => {
         let x = 0, y = 0;
         let isMouseDown = false;
 
-        const stopDrawing = () => { 
+        const stopDrawing = () => {
             isMouseDown = false;
             if (local_path.length > 0) {
                 paths.push(local_path);
                 local_path = [];
-                console.log(paths);
             }
         }
         const startDrawing = event => {
-            isMouseDown = true;   
-            [x, y] = [event.offsetX, event.offsetY];  
+            isMouseDown = true;
+            [x, y] = [event.offsetX, event.offsetY];
         }
         const drawLine = event => {
             if ( isMouseDown ) {
@@ -51,11 +51,22 @@ const Canvas = props => {
                 context.stroke();
                 x = newX;
                 y = newY;
-                local_path.push({
-                    "x": x, 
-                    "y": y,
-                    "t": Date.now()
-                })
+                
+                let prev_time = 0
+                if (local_path.length > 0) {
+                    let prev_el = local_path[local_path.length-1]
+                    prev_time = prev_el.t
+                } 
+
+                let cur_time = Date.now()
+                if (cur_time - prev_time > 20) { // TODO: change this to match website
+                    local_path.push({
+                        "x": x, // and maybe scale these
+                        "y": y,
+                        "t": cur_time
+                    })
+                }
+
             }
         }
 
@@ -66,22 +77,68 @@ const Canvas = props => {
 
     }, [])
 
+    const doAddLine = target_ir => {
+        const line = new Entity(target_ir, "line"); // make a new line entity, parenting it to our current frame
+        const line_ir = line.add(new IrLine(line), [IrLine.KEY]); // add the line ir to our entity
+
+        line.setFinalizer(() => { // make sure we cleanup when we destroy the line
+            line_ir.destroy();
+        });
+
+        target_ir.lines.push(line); // finally, add it to the frames lines
+
+        //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
+        const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!;
+        // TODO deleting blocks breaks??
+        // based on the current insertion mode
+        // Construct a new block through its factory and add it to the line.
+        const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+
+        line_ir.blocks.push(block); // deleting this line breaks
+        props.target_ir.output_block.value = block
+
+        return block.get(MathBlock.KEY)
+
+    };
+
+
     return <div className="canv">
         <div className="scry_buttons">
             <div className="scry_control"
-                onClick={() => { 
+                onClick={() => {
                     const canvas = props.canvasRef.current;
                     const context = canvas.getContext('2d')
                     context.clearRect(0, 0, canvas.width, canvas.height);
                     paths = [];
+                    console.log('clesring')
                 }}
             > <RiRefreshLine /> </div>
 
             <div className="scry_control"
                 data-tip="hello world"
-                onClick={async () => { 
+                onClick={async () => {
 
-                    console.log(await GetTeXResult(paths))
+                    //console.log(await GetTeXResult(paths))
+                    //target_ir.text.value = e.currentTarget.innerText
+                    //console.log(res)
+                    //console.log(props.target_ir.deepGet(IrFrame.KEY))
+                    //
+                    const block_ir = doAddLine(props.target_ir.deepGet(IrFrame.KEY))
+
+                    setTimeout(() => {
+                        block_ir.on_force_update.fire("loading...")
+                    }, 100)
+
+                    console.log(paths, paths.length)
+
+                    await GetTeXResult(paths)
+                        .then(res => {
+                            block_ir.on_force_update.fire(res.join(" \\; "))
+                        })
+                        .catch(err => {
+                            console.log(err)
+                            block_ir.on_force_update.fire("\\text{no results found}")
+                        })
 
                 }}
             > <FaSearch 
@@ -93,7 +150,7 @@ const Canvas = props => {
             //width={250}
             //height={250}
         />
-	
+
     </div>
 }
 
@@ -145,22 +202,19 @@ async function GetTeXResult(positions) {
 
 function ScryBlockView({ target }: EntityViewProps) {
 	const target_ir = target.get(ScryBlock.KEY);
-	const text = useListenable(target_ir.text);
-        
+	//const output_block = useListenable(target_ir.output_block);
+
         const canvas_ref = React.useRef(null);
 
-	const block_ref = React.useRef<HTMLDivElement>(null);
+        const block_ref = React.useRef<HTMLDivElement>(null);
 
-	React.useEffect(() => {
-		block_ref.current!.focus();
+        React.useEffect(() => {
+            block_ref.current!.focus(); // no worky
         }, []);
-
 
 	return <div
             ref={block_ref}
 	>
-            <Canvas canvasRef={canvas_ref} />
+            <Canvas canvasRef={canvas_ref} target_ir={target_ir} />
 	</div>;
 }
-
-

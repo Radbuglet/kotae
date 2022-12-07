@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Entity, Part } from "kotae-util";
-import { EntityViewProps, useListenable } from "../../util/hooks";
+import { EntityViewProps, useListenable, useSignal } from "../../util/hooks";
 import { IrBlock, IrFrame, IrLine, MathBlock, BlockRegistry } from "kotae-common";
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "../registry";
 import MathView, { MathViewRef } from 'react-math-view';
@@ -44,6 +44,17 @@ function MathBlockView({ target }: EntityViewProps) {
 		math_ref.current!.focus();
 		console.log("focusing!", focusMe);
 	}, [focusMe]);
+
+        // forceUpdate
+
+        // pass in a thing
+
+        useSignal(target_ir.on_force_update, (v) => {
+            math_ref.current.setValue( v,
+                {suppressChangeNotifications: true}
+            )
+        })
+
 
 	const handleKeydown = (e) => {
 		console.log(prevVal)
@@ -94,6 +105,7 @@ function MathBlockView({ target }: EntityViewProps) {
 
 			}
 		}
+
 
 		//if (e.key == "ArrowLeft") {
 		//    if (math_ref.current!.selection.ranges[0][0] !== 0 && prevVal !== "") return;
