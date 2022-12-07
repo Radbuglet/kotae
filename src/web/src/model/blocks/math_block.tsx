@@ -45,16 +45,11 @@ function MathBlockView({ target }: EntityViewProps) {
 		console.log("focusing!", focusMe);
 	}, [focusMe]);
 
-        // forceUpdate
-
-        // pass in a thing
-
         useSignal(target_ir.on_force_update, (v) => {
             math_ref.current.setValue( v,
                 {suppressChangeNotifications: true}
             )
         })
-
 
 	const handleKeydown = (e) => {
 		console.log(prevVal)
@@ -72,10 +67,14 @@ function MathBlockView({ target }: EntityViewProps) {
 			line_ir.destroy()
 
 			if (ind !== 0) {
-				const prev_line_ir = frame_ir.lines.value[ind - 1].deepGet(IrLine.KEY);
-				prev_line_ir.blocks.value[0].get(MathBlock.KEY).focusMe.value += 1
+                                const prev_line_ir = frame_ir.lines.value[ind - 1].deepGet(IrLine.KEY);
+                                const prev_line_first_block = prev_line_ir.blocks.value[0].tryGet(MathBlock.KEY)
+                                if (prev_line_first_block !== undefined) {
+                                    prev_line_first_block.focusMe.value += 1
+                                }
 
 			}
+                        return
 		}
 
 		if (e.key == "ArrowUp") {

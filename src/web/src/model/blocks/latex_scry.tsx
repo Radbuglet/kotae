@@ -13,7 +13,9 @@ import { FaSearch } from "react-icons/Fa";
 const Canvas = props => {
 
     // TODO TODO FIXME FIXME FIXME
-    let paths = []; // make this state! otherwise, clears on rerender
+    //let paths = []; // make this state! otherwise, clears on rerender
+    const [paths, setPaths] = React.useState([]);
+
     let local_path = [];
 
     React.useEffect(() => {
@@ -33,7 +35,8 @@ const Canvas = props => {
         const stopDrawing = () => {
             isMouseDown = false;
             if (local_path.length > 0) {
-                paths.push(local_path);
+                setPaths([...paths, local_path]);
+                //paths.push(local_path);
                 local_path = [];
             }
         }
@@ -59,7 +62,7 @@ const Canvas = props => {
                 } 
 
                 let cur_time = Date.now()
-                if (cur_time - prev_time > 20) { // TODO: change this to match website
+                if (cur_time - prev_time >= 4) { // TODO: change this to match website
                     local_path.push({
                         "x": x, // and maybe scale these
                         "y": y,
@@ -109,8 +112,7 @@ const Canvas = props => {
                     const canvas = props.canvasRef.current;
                     const context = canvas.getContext('2d')
                     context.clearRect(0, 0, canvas.width, canvas.height);
-                    paths = [];
-                    console.log('clesring')
+                    setPaths([])
                 }}
             > <RiRefreshLine /> </div>
 
@@ -118,18 +120,11 @@ const Canvas = props => {
                 data-tip="hello world"
                 onClick={async () => {
 
-                    //console.log(await GetTeXResult(paths))
-                    //target_ir.text.value = e.currentTarget.innerText
-                    //console.log(res)
-                    //console.log(props.target_ir.deepGet(IrFrame.KEY))
-                    //
                     const block_ir = doAddLine(props.target_ir.deepGet(IrFrame.KEY))
 
                     setTimeout(() => {
                         block_ir.on_force_update.fire("loading...")
                     }, 100)
-
-                    console.log(paths, paths.length)
 
                     await GetTeXResult(paths)
                         .then(res => {
@@ -147,8 +142,8 @@ const Canvas = props => {
         </div>
         <canvas ref={props.canvasRef} {...props}
             className="border-0 border-red-500 actual_canvas_el"
-            //width={250}
-            //height={250}
+            //width={278}
+            //height={278}
         />
 
     </div>
@@ -197,7 +192,7 @@ async function GetTeXResult(positions) {
     "method": "POST"
     });
     let json = await response.json()
-    return json.filter(element => element.symbol.package != undefined).filter(element => element.symbol.mathmode).slice(0, 5).map(element => element.symbol.command);
+    return json.filter(element => element.symbol.package == undefined).filter(element => element.symbol.mathmode).slice(0, 12).map(element => element.symbol.command);
 }
 
 function ScryBlockView({ target }: EntityViewProps) {
