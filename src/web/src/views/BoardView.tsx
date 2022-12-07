@@ -131,125 +131,125 @@ export function BoardView({ target: board }: EntityViewProps) {
 	});
 
 	//> Render the component
-	return (
-		<div
-			className="h-full bg-matcha-paper board_inner"
-			ref={pan_and_zoom_wrapper}
-		>
-			<PanAndZoom
-				ref={pan_and_zoom}
-				viewport_props={{
-					className: "bg-matcha-paper",
-					style: { width: "100%", height: "100%" },
-					onClick: handleClick,
-				}}
-			>
+        return (
+            <div
+                className="h-full bg-matcha-paper board_inner"
+                ref={pan_and_zoom_wrapper}
+            >
+                <PanAndZoom
+                    ref={pan_and_zoom}
+                    viewport_props={{
+                        className: "bg-matcha-paper",
+                        style: { width: "100%", height: "100%" },
+                    onClick: handleClick,
+                    }}
+                >
 
-				<Moveable
-					ref={moveable_ref}
-					origin={false}
-					draggable={true}
-					target={selectedFrames}
-					//hideDefaultLines={true}
-					onClickGroup={e => {
-						selecto_ref.current!.clickTarget(e.inputEvent, e.inputTarget);
-					}}
-					onDrag={e => {
-						e.target.style.transform = e.transform;
-					}}
-					onDragGroup={e => {
-						e.events.forEach(ev => {
-							ev.target.style.transform = ev.transform;
-						});
-					}}
-					onDragEnd={e => {
-						if (!e.isDrag) return;
+                    <Moveable
+                        ref={moveable_ref}
+                        origin={false}
+                        draggable={true}
+                        target={selectedFrames}
+                        //hideDefaultLines={true}
+                        onClickGroup={e => {
+                            selecto_ref.current!.clickTarget(e.inputEvent, e.inputTarget);
+                        }}
+                        onDrag={e => {
+                            e.target.style.transform = e.transform;
+                        }}
+                        onDragGroup={e => {
+                            e.events.forEach(ev => {
+                                ev.target.style.transform = ev.transform;
+                            });
+                        }}
+                        onDragEnd={e => {
+                            if (!e.isDrag) return;
 
-						const eid = e.target?.dataset["entityId"];
-						if (eid === undefined) return;
+                            const eid = e.target?.dataset["entityId"];
+                            if (eid === undefined) return;
 
-						// this is intentionally bad!
-						// until a better solution is found by @david.
-						let v = e.lastEvent.transform;
-						v = v.replace("translate(", "");
-						v = v.replace(")", "");
-						v = v.replace(/px/g, "").split(",");
+                            // this is intentionally bad!
+                            // until a better solution is found by @david.
+                            let v = e.lastEvent.transform;
+                            v = v.replace("translate(", "");
+                            v = v.replace(")", "");
+                            v = v.replace(/px/g, "").split(",");
 
-						const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY); // update the locations in the IR
-						// when we are done dragging
-						target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
-					}}
+                            const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY); // update the locations in the IR
+                            // when we are done dragging
+                            target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
+                        }}
 
-					onDragGroupEnd={e => {
-						const eid = e.target?.dataset["entityId"];
-						if (eid === undefined) return;
+                        onDragGroupEnd={e => {
+                            const eid = e.target?.dataset["entityId"];
+                            if (eid === undefined) return;
 
-						e.events.forEach(ev => { // same as above but for an entire group of frames
-							let v = ev.lastEvent.transform;
-							v = v.replace("translate(", "");
-							v = v.replace(")", "");
-							v = v.replace(/px/g, "").split(",");
+                            e.events.forEach(ev => { // same as above but for an entire group of frames
+                                let v = ev.lastEvent.transform;
+                                v = v.replace("translate(", "");
+                                v = v.replace(")", "");
+                                v = v.replace(/px/g, "").split(",");
 
-							const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
-							target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
-						});
-					}}
-				/>
+                                const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
+                                target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
+                            });
+                        }}
+                    />
 
-				{Array.from(frames.values()).map(
-					frame => <FrameView
-						key={frame.part_id} target={frame}
-					/>
-				)}
-			</PanAndZoom>
+                    {Array.from(frames.values()).map(
+                        frame => <FrameView
+                            key={frame.part_id} target={frame}
+                        />
+                    )}
+                </PanAndZoom>
 
-			<Selecto
-				ref={selecto_ref}
-				dragContainer={".bg-matcha-paper"}
-				selectableTargets={[".frame"]}
-				hitRate={0} // might be better at 100. play around with this TODO
-				selectByClick={false}
-				selectFromInside={true}
-				toggleContinueSelect={["shift"]}
-				ratio={0} // + L
-				{...(selectoProps !== undefined ? { scrollOptions: selectoProps } : {})}
+                <Selecto
+                    ref={selecto_ref}
+                    dragContainer={".bg-matcha-paper"}
+                    selectableTargets={[".frame"]}
+                    hitRate={0} // might be better at 100. play around with this TODO
+                    selectByClick={false}
+                    selectFromInside={true}
+                    toggleContinueSelect={["shift"]}
+                    ratio={0} // + L
+                    {...(selectoProps !== undefined ? { scrollOptions: selectoProps } : {})}
 
-				dragCondition={e => {
-					// TODO we need to think about the right thing here -- this is just temp.
-					// could / should be a mode on the sidebar
-					return (e.inputEvent.altKey || is_selecting); // only drag if we have the alt key or the sidebar mode is active
-					// TODO make this sync to the sidebar onkeydown 
-				}}
+                    dragCondition={e => {
+                        // TODO we need to think about the right thing here -- this is just temp.
+                        // could / should be a mode on the sidebar
+                        return (e.inputEvent.altKey || is_selecting); // only drag if we have the alt key or the sidebar mode is active
+                        // TODO make this sync to the sidebar onkeydown 
+                    }}
 
-				onDragStart={e => {
-					const moveable = moveable_ref.current!;
-					const target = e.inputEvent.target;
-					// no idea what this is:
-					if (
-						moveable.isMoveableElement(target)
-						|| selectedFrames.some(t => t === target || t.contains(target))
-					) {
-						console.log("stopping select")
-						e.stop();
-					}
-				}}
+                    onDragStart={e => {
+                        const moveable = moveable_ref.current!;
+                        const target = e.inputEvent.target;
+                        // no idea what this is:
+                        if (
+                            moveable.isMoveableElement(target)
+                                || selectedFrames.some(t => t === target || t.contains(target))
+                        ) {
+                            console.log("stopping select")
+                            e.stop();
+                        }
+                    }}
 
-				onSelect={e => {
-					setSelectedFrames(e.selected);
-				}}
+                    onSelect={e => {
+                        setSelectedFrames(e.selected);
+                    }}
 
-				// or what this does. oh well!
-				onSelectEnd={e => {
-					const moveable = moveable_ref.current!;
-					if (e.isDragStart) {
-						e.inputEvent.preventDefault();
+                    // or what this does. oh well!
+                    onSelectEnd={e => {
+                        const moveable = moveable_ref.current!;
+                        if (e.isDragStart) {
+                            e.inputEvent.preventDefault();
 
-						setTimeout(() => { // haha this is example code. *clean*
-							moveable.dragStart(e.inputEvent);
-						});
-					}
-				}}
-			/>
-		</div>
-	)
+                            setTimeout(() => { // haha this is example code. *clean*
+                                moveable.dragStart(e.inputEvent);
+                            });
+                        }
+                    }}
+                />
+            </div>
+        )
 }
