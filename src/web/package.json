@@ -9,6 +9,7 @@
 		"@use-gesture/react": "^10.2.20",
 		"css.gg": "^2.0.0",
 		"gl-matrix": "^3.4.3",
+		"kbar": "^0.1.0-beta.39",
 		"kotae-common": "file:../common",
 		"kotae-util": "file:../util",
 		"mathlive": "^0.83.0",
@@ -21,6 +22,7 @@
 		"react-selecto": "^1.20.2"
 	},
 	"devDependencies": {
+		"@parcel/transformer-sass": "^2.7.0",
 		"@tauri-apps/cli": "^1.1.1",
 		"@types/react": "^18.0.21",
 		"@types/react-dom": "^18.0.6",

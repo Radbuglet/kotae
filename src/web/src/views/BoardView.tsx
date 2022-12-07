@@ -11,6 +11,16 @@ import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
 import { SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../model/board";
 import "../../styles/Board.css"
+import {
+  KBarProvider,
+  KBarPortal,
+  KBarPositioner,
+  KBarAnimator,
+  KBarSearch,
+  useMatches,
+  NO_GROUP
+} from "kbar";
+import CommandBar from "./CommandBar";
 
 // TODO: make onkeydown for alt toggle selection mode, and onkeyup reset it!
 
@@ -128,14 +138,36 @@ export function BoardView({ target: board }: EntityViewProps) {
 
 	useSignal(board.deepGet(ZOOM_RESET_SIGNAL), () => {
 		resetZoom();
-	});
+        });
+
+        const actions = [
+            {
+                id: "blog",
+                name: "Blog",
+                shortcut: ["b"],
+                keywords: "writing words",
+                perform: () => (window.location.pathname = "blog"),
+            },
+                {
+                    id: "contact",
+                    name: "Contact",
+                    shortcut: ["c"],
+                    keywords: "email",
+                    perform: () => (window.location.pathname = "contact"),
+                },
+        ]
 
 	//> Render the component
         return (
+                <KBarProvider actions={actions}>
+                    <CommandBar />
+
             <div
                 className="h-full bg-matcha-paper board_inner"
                 ref={pan_and_zoom_wrapper}
             >
+
+
                 <PanAndZoom
                     ref={pan_and_zoom}
                     viewport_props={{
@@ -251,5 +283,6 @@ export function BoardView({ target: board }: EntityViewProps) {
                     }}
                 />
             </div>
+                      </KBarProvider>
         )
 }
