@@ -116,13 +116,11 @@ const Canvas = props => {
             > <RiRefreshLine /> </div>
 
             <div className="scry_control"
-                data-tip="hello world"
                 onClick={async () => {
 
                     const block_ir = doAddLine(props.target_ir.deepGet(IrFrame.KEY))
 
                     setTimeout(() => {
-                        console.log(block_ir.math.value, "hii")
                         block_ir.on_force_update.fire("loading...")
                     }, 20)
 
