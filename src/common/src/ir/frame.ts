@@ -1,6 +1,7 @@
 import { assert, Entity, IReadonlyListenSet, ArrayExt, ListenArray, ListenSet, Part, TypedKey } from "kotae-util";
 import { IrBoard } from "./board";
 import { IrLine } from "./line";
+import { ComputeEngine } from "@cortex-js/compute-engine"
 
 export class IrFrame extends Part {
 	static readonly KEY = new TypedKey<IrFrame>("IrFrame");
@@ -8,6 +9,7 @@ export class IrFrame extends Part {
 	private readonly linked_to_ = new ListenSet<Entity>(this);
 	private readonly dependents = new Set<Entity>();
 	readonly lines = new ListenArray<Entity>(this);
+        readonly ce = new ComputeEngine();
 
 	get linked_to(): IReadonlyListenSet<Entity> {
 		return this.linked_to_;
@@ -64,6 +66,14 @@ export class IrFrame extends Part {
 		mergee_ir.blocks.clear();
 		mergee.destroy();
 	}
+
+        testContext() {
+            console.log(this.ce.parse("e^{i\\pi}").N().latex, "hwe");
+        }
+
+        simplify(v: string) {
+            return this.ce.parse(v).simplify().latex
+        }
 
 	protected override onDestroy() {
 		// Destroy lines

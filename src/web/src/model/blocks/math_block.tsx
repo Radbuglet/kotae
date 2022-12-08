@@ -151,20 +151,58 @@ function MathBlockView({ target }: EntityViewProps) {
         const handleBlur = (e) => {
         }
 
-        const math_block_actions = [{
-                id: 1,
-                name: "Quick switcher",
-                subtitle: target_ir.part_id,
-                //subtitle: v.description,
-                shortcut: ["ctrl+k", "mod+k"],
+        const math_block_actions = [
+            {
+                id: "Test ce",
+                name: "Test ce",
+                subtitle: "sahhhhhhhhhhh",
+                shortcut: [],
                 perform: () => { 
-                    console.log(target_ir.part_id)
+                    console.log(target_ir.deepGet(IrFrame.KEY).testContext())
                 },
                 keywords: "Toggle the quick switcher",
                 priority: Priority.HIGH,
                 section: "Math Block"
             },
+            {
+                id: "Simplify",
+                name: "Simplify",
+                subtitle: "simplify the current line.",
+                shortcut: [],
+                perform: () => { 
+                    addResultLine(`= ${target_ir.deepGet(IrFrame.KEY).simplify(target_ir.math.value)}`)
+                },
+                //keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
         ]
+
+
+        const addResultLine = (res: string) => {
+            console.log(res, math)
+            const frame_ir = target_ir.deepGet(IrFrame.KEY)
+            const line = new Entity(frame_ir, "line");
+            const line_ir = line.add(new IrLine(line), [IrLine.KEY]);
+            line.setFinalizer(() => {
+                line_ir.destroy();
+            });
+
+            const cur_idx = frame_ir.lines.indexOf(target_ir.deepGet(IrLine.KEY).parent_entity)
+
+            frame_ir.lines.pushAt(cur_idx+1, line)
+
+            const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!; // FIXME todo
+            const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+            line_ir.blocks.push(block)
+
+            const block_ir = block.get(MathBlock.KEY)
+
+            setTimeout(() => {
+                block_ir.on_force_update.fire(res)
+            }, 20)
+
+        }
 
         useRegisterActions(math_block_actions, [barTrigger])
 

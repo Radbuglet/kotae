@@ -276,7 +276,6 @@ export function LineView({ target }: EntityViewProps) {
             const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[i]!; // FIXME todo
             const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
             line_ir.blocks.push(block)
-
         }
 
         const line_actions = [
@@ -311,6 +310,18 @@ export function LineView({ target }: EntityViewProps) {
                 shortcut: [],
                 perform: () => {
                     addBlock(2)
+                },
+                keywords: "",
+                priority: Priority.MEDIUM,
+                section: "Frame"
+            },
+            {
+                id: "Export Frame",
+                name: "Export Frame",
+                subtitle: "export the current frame to LaTeX.",
+                shortcut: [],
+                perform: () => {
+                    alert("not implemented yet! @nick")
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,

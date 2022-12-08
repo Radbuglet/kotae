@@ -3,8 +3,9 @@
 	"version": "1.0.0",
 	"main": "src/index.ts",
 	"dependencies": {
-		"kotae-util": "file:../util",
-		"gl-matrix": "^3.4.3"
+		"@cortex-js/compute-engine": "^0.12.2",
+		"gl-matrix": "^3.4.3",
+		"kotae-util": "file:../util"
 	},
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
