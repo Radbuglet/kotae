@@ -1,0 +1,68 @@
+{
+  "name": "Kotae",
+  "scripts": {
+      "start": "electron ."
+  }, 
+  "version": "1.2.0",
+  "main": "main.js",
+  "postinstall": {
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/radbuglet/kotae.git"
+  },
+  "author": "PLEASE HELP US",
+  "license": " UNLICENSE",
+  "bugs": {
+    "url": "https://github.com/radbuglet/kotae/issues"
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "description": "Tasks? Done. That was quick.",
+  "build": {
+    "extends": null,
+    "appId": "ink.kotae",
+    "productName": "Kotae",
+    "directories": {
+      "buildResources": "resources"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "identity": "Shabang Systems, LLC (9TEPY3US76)",
+      "gatekeeperAssess": false,
+      "entitlements": "resources/entitlements.mac.plist",
+      "entitlementsInherit": "resources/entitlements.mac.plist"
+    },
+    "dmg": {
+      "sign": false
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "afterSign": "./resources/buildscripts/aftersign.js"
+  },
+  "devDependencies": {
+    "electron": "^13.6.9",
+    "electron-builder": "^22.11.0",
+    "electron-notarize": "^1.0.0"
+  },
+  "dependencies": {
+    "electron-is-dev": "^1.2.0",
+    "electron-updater": "^4.3.5"
+  }
+}

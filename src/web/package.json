@@ -8,6 +8,7 @@
 		"@tiptap/suggestion": "^2.0.0-beta.199",
 		"@use-gesture/react": "^10.2.20",
 		"css.gg": "^2.0.0",
+		"electron": "^22.0.0",
 		"gl-matrix": "^3.4.3",
 		"kotae-common": "file:../common",
 		"kotae-util": "file:../util",
@@ -34,7 +35,7 @@
 		"build": "parcel build static/index.html",
 		"tauri": "tauri",
 		"dev": "npm run tauri dev",
-		"bundle": "tauri build",
+		"tauri-bundle": "tauri build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	}
 }
