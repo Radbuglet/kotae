@@ -52,7 +52,7 @@ const Canvas = props => {
                 context.stroke();
                 x = newX;
                 y = newY;
-                
+
                 let prev_time = 0
                 if (local_path.length > 0) {
                     let prev_el = local_path[local_path.length-1]
@@ -86,11 +86,9 @@ const Canvas = props => {
             line_ir.destroy();
         });
 
-        target_ir.lines.push(line); // finally, add it to the frames lines
-        //console.log(target_ir.lines.indexOf(props.target_ir.value), props.target_ir)
-        //
-        // for @radbuglet to help w/ TODO 
-        // make this push to the lines below the scry block
+        //target_ir.lines.push(line); // finally, add it to the frames lines
+        const scry_block_idx = target_ir.lines.indexOf(props.target_ir.deepGet(IrLine.KEY).parent_entity)
+        target_ir.lines.pushAt(scry_block_idx+1, line); // finally, add it to the frames lines
 
         //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
         const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!;

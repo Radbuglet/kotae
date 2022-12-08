@@ -123,7 +123,7 @@ function MathBlockView({ target }: EntityViewProps) {
 	}
 
 	return <div
-		className="outline-none"
+		className="outline-none border-red-500 border-0"
 		ref={block_ref}
 	>
 		<MathView
@@ -155,7 +155,10 @@ function MathBlockView({ target }: EntityViewProps) {
 						line_ir.destroy();
 					});
 
-					frame_ir.lines.push(line)
+                                        const cur_idx = frame_ir.lines.indexOf(target_ir.deepGet(IrLine.KEY).parent_entity)
+
+                                        frame_ir.lines.pushAt(cur_idx+1, line)
+
 					const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!; // FIXME todo
 					const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
 					line_ir.blocks.push(block)
@@ -173,6 +176,9 @@ function MathBlockView({ target }: EntityViewProps) {
 			smartFence={true}
 			smartSuperscript={false}
 			mathModeSpace={"\\;"}
+                        onExport={(mf, latex, range) => {
+                            return latex
+                        }}
 		//className="math-field"
 		//style={{
 		//    backgroundColor: "red",
