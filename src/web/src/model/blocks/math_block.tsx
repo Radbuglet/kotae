@@ -5,6 +5,22 @@ import { IrBlock, IrFrame, IrLine, MathBlock, BlockRegistry } from "kotae-common
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "../registry";
 import MathView, { MathViewRef } from 'react-math-view';
 import "../../../styles/MathBlock.css";
+import {
+    ActionId,
+    KBarAnimator,
+    KBarProvider,
+    KBarPortal,
+    KBarPositioner,
+    KBarSearch,
+    KBarResults,
+    createAction,
+    useMatches,
+    useRegisterActions,
+    ActionImpl,
+    useKBar,
+    Priority
+} from "kbar";
+
 
 export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "math block kind");
@@ -39,6 +55,8 @@ function MathBlockView({ target }: EntityViewProps) {
 	const math_ref = React.useRef<MathViewRef>(null);
 
 	const [prevVal, setPrevVal] = React.useState(math);
+
+        const [barTrigger, triggerBar] = React.useState(0);
 
 	React.useEffect(() => {
 		math_ref.current!.focus();
@@ -122,6 +140,34 @@ function MathBlockView({ target }: EntityViewProps) {
 		//}
 	}
 
+
+        const { query } = useKBar();
+
+
+        const handleFocus = (e) => {
+            triggerBar(barTrigger + 1)
+        }
+
+        const handleBlur = (e) => {
+        }
+
+        const math_block_actions = [{
+                id: 1,
+                name: "Quick switcher",
+                subtitle: target_ir.part_id,
+                //subtitle: v.description,
+                shortcut: ["ctrl+k", "mod+k"],
+                perform: () => { 
+                    console.log(target_ir.part_id)
+                },
+                keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
+        ]
+
+        useRegisterActions(math_block_actions, [barTrigger])
+
 	return <div
 		className="outline-none border-red-500 border-0"
 		ref={block_ref}
@@ -133,13 +179,11 @@ function MathBlockView({ target }: EntityViewProps) {
 			// instead, it instantly collapses the virtual ).
 
 			ref={math_ref}
-			onBlur={(e) => {
-				//if (!target_ir.is_alive) return;
 
-				//if (!target_ir.on_initialize.value) {
-				//    target_ir.on_initialize.value = false;
-				//}
-			}}
+			onBlur={handleBlur}
+
+			onFocus={handleFocus}
+
 			onChange={(e) => {
 				//console.log("blurin the math field");
 				target_ir.math.value = e.target.value;

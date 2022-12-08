@@ -49,8 +49,6 @@ const groupNameStyle = {
 };
 
 function CommandPalette(props) {
-    const [shouldUpdate, setShouldUpdate] = React.useState(0);
-    const { shortcut } = props;
 
     const { query } = useKBar();
 
