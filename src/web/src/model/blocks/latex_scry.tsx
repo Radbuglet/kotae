@@ -12,8 +12,6 @@ import { FaSearch } from "react-icons/Fa";
 
 const Canvas = props => {
 
-    // TODO TODO FIXME FIXME FIXME
-    //let paths = []; // make this state! otherwise, clears on rerender
     const [paths, setPaths] = React.useState([]);
 
     let local_path = [];
@@ -89,6 +87,10 @@ const Canvas = props => {
         });
 
         target_ir.lines.push(line); // finally, add it to the frames lines
+        //console.log(target_ir.lines.indexOf(props.target_ir.value), props.target_ir)
+        //
+        // for @radbuglet to help w/ TODO 
+        // make this push to the lines below the scry block
 
         //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
         const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!;
@@ -101,7 +103,6 @@ const Canvas = props => {
         props.target_ir.output_block.value = block
 
         return block.get(MathBlock.KEY)
-
     };
 
 
@@ -123,8 +124,9 @@ const Canvas = props => {
                     const block_ir = doAddLine(props.target_ir.deepGet(IrFrame.KEY))
 
                     setTimeout(() => {
+                        console.log(block_ir.math.value, "hii")
                         block_ir.on_force_update.fire("loading...")
-                    }, 100)
+                    }, 20)
 
                     await GetTeXResult(paths)
                         .then(res => {
@@ -132,7 +134,7 @@ const Canvas = props => {
                         })
                         .catch(err => {
                             console.log(err)
-                            block_ir.on_force_update.fire("\\text{no results found}")
+                            block_ir.on_force_update.fire(`\\text{no results found, ${err}}`)
                         })
 
                 }}
