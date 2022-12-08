@@ -9,6 +9,7 @@
 		"@use-gesture/react": "^10.2.20",
 		"css.gg": "^2.0.0",
 		"electron": "^22.0.0",
+		"fast-xml-parser": "^4.0.12",
 		"gl-matrix": "^3.4.3",
 		"kbar": "^0.1.0-beta.39",
 		"kotae-common": "file:../common",

@@ -32,7 +32,6 @@ function createWindow () {
     win.on('page-title-updated', function(e) {
         e.preventDefault()
     });
-
     // TODO TODO TODO UNCOMMENT THIS!!
     win.removeMenu();
     // and load the main of the app.
