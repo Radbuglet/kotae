@@ -11,6 +11,16 @@ import { PanAndZoom } from "../util/pan";
 import { FrameView } from "./FrameView";
 import { SELECT_ACTIVE, ZOOM_RESET_SIGNAL } from "../model/board";
 import "../../styles/Board.css"
+import {
+  KBarProvider,
+  KBarPortal,
+  KBarPositioner,
+  KBarAnimator,
+  KBarSearch,
+  useMatches,
+  NO_GROUP
+} from "kbar";
+import CommandBar from "./CommandBar";
 
 // TODO: make onkeydown for alt toggle selection mode, and onkeyup reset it!
 
@@ -128,128 +138,151 @@ export function BoardView({ target: board }: EntityViewProps) {
 
 	useSignal(board.deepGet(ZOOM_RESET_SIGNAL), () => {
 		resetZoom();
-	});
+        });
+
+        const actions = [
+            {
+                id: "blog",
+                name: "Blog",
+                shortcut: ["b"],
+                keywords: "writing words",
+                perform: () => (window.location.pathname = "blog"),
+            },
+                {
+                    id: "contact",
+                    name: "Contact",
+                    shortcut: ["c"],
+                    keywords: "email",
+                    perform: () => (window.location.pathname = "contact"),
+                },
+        ]
 
 	//> Render the component
-	return (
-		<div
-			className="h-full bg-matcha-paper board_inner"
-			ref={pan_and_zoom_wrapper}
-		>
-			<PanAndZoom
-				ref={pan_and_zoom}
-				viewport_props={{
-					className: "bg-matcha-paper",
-					style: { width: "100%", height: "100%" },
-					onClick: handleClick,
-				}}
-			>
+        return (
+                <KBarProvider actions={actions}>
+                    <CommandBar />
 
-				<Moveable
-					ref={moveable_ref}
-					origin={false}
-					draggable={true}
-					target={selectedFrames}
-					//hideDefaultLines={true}
-					onClickGroup={e => {
-						selecto_ref.current!.clickTarget(e.inputEvent, e.inputTarget);
-					}}
-					onDrag={e => {
-						e.target.style.transform = e.transform;
-					}}
-					onDragGroup={e => {
-						e.events.forEach(ev => {
-							ev.target.style.transform = ev.transform;
-						});
-					}}
-					onDragEnd={e => {
-						if (!e.isDrag) return;
+            <div
+                className="h-full bg-matcha-paper board_inner"
+                ref={pan_and_zoom_wrapper}
+            >
 
-						const eid = e.target?.dataset["entityId"];
-						if (eid === undefined) return;
 
-						// this is intentionally bad!
-						// until a better solution is found by @david.
-						let v = e.lastEvent.transform;
-						v = v.replace("translate(", "");
-						v = v.replace(")", "");
-						v = v.replace(/px/g, "").split(",");
+                <PanAndZoom
+                    ref={pan_and_zoom}
+                    viewport_props={{
+                        className: "bg-matcha-paper",
+                        style: { width: "100%", height: "100%" },
+                    onClick: handleClick,
+                    }}
+                >
 
-						const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY); // update the locations in the IR
-						// when we are done dragging
-						target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
-					}}
+                    <Moveable
+                        ref={moveable_ref}
+                        origin={false}
+                        draggable={true}
+                        target={selectedFrames}
+                        //hideDefaultLines={true}
+                        onClickGroup={e => {
+                            selecto_ref.current!.clickTarget(e.inputEvent, e.inputTarget);
+                        }}
+                        onDrag={e => {
+                            e.target.style.transform = e.transform;
+                        }}
+                        onDragGroup={e => {
+                            e.events.forEach(ev => {
+                                ev.target.style.transform = ev.transform;
+                            });
+                        }}
+                        onDragEnd={e => {
+                            if (!e.isDrag) return;
 
-					onDragGroupEnd={e => {
-						const eid = e.target?.dataset["entityId"];
-						if (eid === undefined) return;
+                            const eid = e.target?.dataset["entityId"];
+                            if (eid === undefined) return;
 
-						e.events.forEach(ev => { // same as above but for an entire group of frames
-							let v = ev.lastEvent.transform;
-							v = v.replace("translate(", "");
-							v = v.replace(")", "");
-							v = v.replace(/px/g, "").split(",");
+                            // this is intentionally bad!
+                            // until a better solution is found by @david.
+                            let v = e.lastEvent.transform;
+                            v = v.replace("translate(", "");
+                            v = v.replace(")", "");
+                            v = v.replace(/px/g, "").split(",");
 
-							const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
-							target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
-						});
-					}}
-				/>
+                            const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY); // update the locations in the IR
+                            // when we are done dragging
+                            target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
+                        }}
 
-				{Array.from(frames.values()).map(
-					frame => <FrameView
-						key={frame.part_id} target={frame}
-					/>
-				)}
-			</PanAndZoom>
+                        onDragGroupEnd={e => {
+                            const eid = e.target?.dataset["entityId"];
+                            if (eid === undefined) return;
 
-			<Selecto
-				ref={selecto_ref}
-				dragContainer={".bg-matcha-paper"}
-				selectableTargets={[".frame"]}
-				hitRate={0} // might be better at 100. play around with this TODO
-				selectByClick={false}
-				selectFromInside={true}
-				toggleContinueSelect={["shift"]}
-				ratio={0} // + L
-				{...(selectoProps !== undefined ? { scrollOptions: selectoProps } : {})}
+                            e.events.forEach(ev => { // same as above but for an entire group of frames
+                                let v = ev.lastEvent.transform;
+                                v = v.replace("translate(", "");
+                                v = v.replace(")", "");
+                                v = v.replace(/px/g, "").split(",");
 
-				dragCondition={e => {
-					// TODO we need to think about the right thing here -- this is just temp.
-					// could / should be a mode on the sidebar
-					return (e.inputEvent.altKey || is_selecting); // only drag if we have the alt key or the sidebar mode is active
-					// TODO make this sync to the sidebar onkeydown 
-				}}
+                                const target_frame = Entity.entityFromId(parseInt(eid)).get(LayoutFrame.KEY);
+                                target_frame.position.value = [parseFloat(v[0]), parseFloat(v[1])];
+                            });
+                        }}
+                    />
 
-				onDragStart={e => {
-					const moveable = moveable_ref.current!;
-					const target = e.inputEvent.target;
-					// no idea what this is:
-					if (
-						moveable.isMoveableElement(target)
-						|| selectedFrames.some(t => t === target || t.contains(target))
-					) {
-						console.log("stopping select")
-						e.stop();
-					}
-				}}
+                    {Array.from(frames.values()).map(
+                        frame => <FrameView
+                            key={frame.part_id} target={frame}
+                        />
+                    )}
+                </PanAndZoom>
 
-				onSelect={e => {
-					setSelectedFrames(e.selected);
-				}}
+                <Selecto
+                    ref={selecto_ref}
+                    dragContainer={".bg-matcha-paper"}
+                    selectableTargets={[".frame"]}
+                    hitRate={0} // might be better at 100. play around with this TODO
+                    selectByClick={false}
+                    selectFromInside={true}
+                    toggleContinueSelect={["shift"]}
+                    ratio={0} // + L
+                    {...(selectoProps !== undefined ? { scrollOptions: selectoProps } : {})}
 
-				// or what this does. oh well!
-				onSelectEnd={e => {
-					const moveable = moveable_ref.current!;
-					if (e.isDragStart) {
-						e.inputEvent.preventDefault();
+                    dragCondition={e => {
+                        // TODO we need to think about the right thing here -- this is just temp.
+                        // could / should be a mode on the sidebar
+                        return (e.inputEvent.altKey || is_selecting); // only drag if we have the alt key or the sidebar mode is active
+                        // TODO make this sync to the sidebar onkeydown 
+                    }}
 
-						setTimeout(() => { // haha this is example code. *clean*
-							moveable.dragStart(e.inputEvent);
-						});
-					}
-				}}
-			/>
-		</div>
-	)
+                    onDragStart={e => {
+                        const moveable = moveable_ref.current!;
+                        const target = e.inputEvent.target;
+                        // no idea what this is:
+                        if (
+                            moveable.isMoveableElement(target)
+                                || selectedFrames.some(t => t === target || t.contains(target))
+                        ) {
+                            console.log("stopping select")
+                            e.stop();
+                        }
+                    }}
+
+                    onSelect={e => {
+                        setSelectedFrames(e.selected);
+                    }}
+
+                    // or what this does. oh well!
+                    onSelectEnd={e => {
+                        const moveable = moveable_ref.current!;
+                        if (e.isDragStart) {
+                            e.inputEvent.preventDefault();
+
+                            setTimeout(() => { // haha this is example code. *clean*
+                                moveable.dragStart(e.inputEvent);
+                            });
+                        }
+                    }}
+                />
+            </div>
+                      </KBarProvider>
+        )
 }
