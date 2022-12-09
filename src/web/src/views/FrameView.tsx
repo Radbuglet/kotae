@@ -9,7 +9,7 @@ import type { OnDrag } from "react-moveable";
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
 import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../model/registry";
-import { DEFAULT_INSERTION_MODE } from "../model/board";
+import { DEFAULT_INSERTION_MODE, COMMAND_BAR_ACTIVE } from "../model/board";
 
 import {
     ActionId,
@@ -56,6 +56,9 @@ export function FrameView({ target }: EntityViewProps) {
 	const doDestroy = wrapWeakReceiver(target, target => {
 		target.destroy();
 	});
+
+	const command_bar_active = target.deepGet(COMMAND_BAR_ACTIVE);
+	const command_bar_active_listener = useListenable(command_bar_active);
 
 	const doAddLine = wrapWeakReceiver(target_ir, target_ir => {
 		const line = new Entity(target_ir, "line"); // make a new line entity, parenting it to our current frame
@@ -125,7 +128,12 @@ export function FrameView({ target }: EntityViewProps) {
                 console.log("blurring", target_ir.part_id)
 		const isEmpty = (target_ir: IrFrame) => {
 			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]` 
-
+                        setTimeout(() => {
+                            console.log(command_bar_active_listener, "here")
+                        }, 300)
+                        if (command_bar_active_listener) {
+                            return false;
+                        }
 
 			if (target_ir.lines.length > 1) return false;
 

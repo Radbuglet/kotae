@@ -144,7 +144,7 @@ export function BoardView({ target: board }: EntityViewProps) {
 	//> Render the component
         return (
                 <KBarProvider actions={[]}>
-                    <CommandBar />
+                    <CommandBar target={board}/>
 
             <div
                 className="h-full bg-matcha-paper board_inner"

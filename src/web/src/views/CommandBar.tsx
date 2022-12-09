@@ -1,6 +1,10 @@
 //import React, { useEffect, useState } from 'react';
 import * as React from "react";
 import "../../styles/CommandBar.scss";
+import { COMMAND_BAR_ACTIVE } from "../model/board"; // data we're accessing from IR
+import { EntityViewProps, useListenable, wrapWeakReceiver } from "../util/hooks"; // IR utilities
+
+
 
 //import { KBarProvider , KBarPortal, KBarPositioner, KBarAnimator, KBarSearch, useMatches, NO_GROUP, KBarResults } from "kbar";
 import {
@@ -48,7 +52,7 @@ const groupNameStyle = {
     opacity: 0.5,
 };
 
-function CommandPalette(props) {
+function CommandPalette({ target }: EntityViewProps) {
 
     const { query } = useKBar();
 
@@ -75,15 +79,34 @@ function CommandPalette(props) {
             <KBarPositioner>
                 <KBarAnimator style={animatorStyle}>
                     <KBarSearch style={searchStyle} />
-                    <RenderResults />
+                    <RenderResults target={target} />
                 </KBarAnimator>
             </KBarPositioner>
         </KBarPortal>
     );
 }
 
-function RenderResults() {
+function RenderResults({ target }: EntityViewProps) {
     const { results, rootActionId } = useMatches();
+    const  command_bar_active = target.deepGet(COMMAND_BAR_ACTIVE); // access the block insertion mode (math or regular text) from the IR
+
+    const doFalsifyCommandBarActiveStatus = wrapWeakReceiver(command_bar_active, _ => {
+        command_bar_active.value = false
+    });
+
+    const doTruthifyCommandBarActiveStatus = wrapWeakReceiver(command_bar_active, _ => {
+        command_bar_active.value = true
+    });
+
+
+    React.useEffect(() => {
+        console.log("mounting command bar", target)
+        doTruthifyCommandBarActiveStatus()
+        return () => {
+            console.log("unmounting command bar", target)
+            doFalsifyCommandBarActiveStatus()
+        }
+    }, [])
 
     return (
         <KBarResults
