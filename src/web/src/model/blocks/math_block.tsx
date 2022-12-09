@@ -5,6 +5,22 @@ import { IrBlock, IrFrame, IrLine, MathBlock, BlockRegistry } from "kotae-common
 import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "../registry";
 import MathView, { MathViewRef } from 'react-math-view';
 import "../../../styles/MathBlock.css";
+import {
+    ActionId,
+    KBarAnimator,
+    KBarProvider,
+    KBarPortal,
+    KBarPositioner,
+    KBarSearch,
+    KBarResults,
+    createAction,
+    useMatches,
+    useRegisterActions,
+    ActionImpl,
+    useKBar,
+    Priority
+} from "kbar";
+
 
 export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "math block kind");
@@ -39,6 +55,8 @@ function MathBlockView({ target }: EntityViewProps) {
 	const math_ref = React.useRef<MathViewRef>(null);
 
 	const [prevVal, setPrevVal] = React.useState(math);
+
+        const [barTrigger, triggerBar] = React.useState(0);
 
 	React.useEffect(() => {
 		math_ref.current!.focus();
@@ -122,8 +140,74 @@ function MathBlockView({ target }: EntityViewProps) {
 		//}
 	}
 
+
+        const { query } = useKBar();
+
+
+        const handleFocus = (e) => {
+            triggerBar(barTrigger + 1)
+        }
+
+        const handleBlur = (e) => {
+        }
+
+        const math_block_actions = [
+            {
+                id: "Test ce",
+                name: "Test ce",
+                subtitle: "sahhhhhhhhhhh",
+                shortcut: [],
+                perform: () => { 
+                    console.log(target_ir.deepGet(IrFrame.KEY).testContext())
+                },
+                keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
+            {
+                id: "Simplify",
+                name: "Simplify",
+                subtitle: "simplify the current line.",
+                shortcut: [],
+                perform: () => { 
+                    addResultLine(`= ${target_ir.deepGet(IrFrame.KEY).simplify(target_ir.math.value)}`)
+                },
+                //keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
+        ]
+
+
+        const addResultLine = (res: string) => {
+            console.log(res, math)
+            const frame_ir = target_ir.deepGet(IrFrame.KEY)
+            const line = new Entity(frame_ir, "line");
+            const line_ir = line.add(new IrLine(line), [IrLine.KEY]);
+            line.setFinalizer(() => {
+                line_ir.destroy();
+            });
+
+            const cur_idx = frame_ir.lines.indexOf(target_ir.deepGet(IrLine.KEY).parent_entity)
+
+            frame_ir.lines.pushAt(cur_idx+1, line)
+
+            const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!; // FIXME todo
+            const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+            line_ir.blocks.push(block)
+
+            const block_ir = block.get(MathBlock.KEY)
+
+            setTimeout(() => {
+                block_ir.on_force_update.fire(res)
+            }, 20)
+
+        }
+
+        useRegisterActions(math_block_actions, [barTrigger])
+
 	return <div
-		className="outline-none"
+		className="outline-none border-red-500 border-0"
 		ref={block_ref}
 	>
 		<MathView
@@ -133,13 +217,11 @@ function MathBlockView({ target }: EntityViewProps) {
 			// instead, it instantly collapses the virtual ).
 
 			ref={math_ref}
-			onBlur={(e) => {
-				//if (!target_ir.is_alive) return;
 
-				//if (!target_ir.on_initialize.value) {
-				//    target_ir.on_initialize.value = false;
-				//}
-			}}
+			onBlur={handleBlur}
+
+			onFocus={handleFocus}
+
 			onChange={(e) => {
 				//console.log("blurin the math field");
 				target_ir.math.value = e.target.value;
@@ -155,7 +237,10 @@ function MathBlockView({ target }: EntityViewProps) {
 						line_ir.destroy();
 					});
 
-					frame_ir.lines.push(line)
+                                        const cur_idx = frame_ir.lines.indexOf(target_ir.deepGet(IrLine.KEY).parent_entity)
+
+                                        frame_ir.lines.pushAt(cur_idx+1, line)
+
 					const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[1]!; // FIXME todo
 					const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
 					line_ir.blocks.push(block)
@@ -173,6 +258,9 @@ function MathBlockView({ target }: EntityViewProps) {
 			smartFence={true}
 			smartSuperscript={false}
 			mathModeSpace={"\\;"}
+                        onExport={(mf, latex, range) => {
+                            return latex
+                        }}
 		//className="math-field"
 		//style={{
 		//    backgroundColor: "red",

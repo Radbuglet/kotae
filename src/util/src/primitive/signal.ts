@@ -164,6 +164,11 @@ export class ListenArray<T> extends Part implements IReadonlyListenArray<T> {
 		this.onChange();
 	}
 
+	pushAt(index: number, value: T) {
+		this.backing.splice(index, 0, value);
+		this.onChange();
+	}
+
 	removeAt(index: number): T | undefined {
 		const removed = this.backing.splice(index, 1)[0];
 		if (removed !== undefined) {
