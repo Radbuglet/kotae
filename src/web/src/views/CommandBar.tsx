@@ -100,10 +100,8 @@ function RenderResults({ target }: EntityViewProps) {
 
 
     React.useEffect(() => {
-        console.log("mounting command bar", target)
         doTruthifyCommandBarActiveStatus()
         return () => {
-            console.log("unmounting command bar", target)
             doFalsifyCommandBarActiveStatus()
         }
     }, [])
