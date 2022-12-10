@@ -140,27 +140,11 @@ export function BoardView({ target: board }: EntityViewProps) {
 		resetZoom();
         });
 
-        const actions = [
-            {
-                id: "blog",
-                name: "Blog",
-                shortcut: ["b"],
-                keywords: "writing words",
-                perform: () => (window.location.pathname = "blog"),
-            },
-                {
-                    id: "contact",
-                    name: "Contact",
-                    shortcut: ["c"],
-                    keywords: "email",
-                    perform: () => (window.location.pathname = "contact"),
-                },
-        ]
 
 	//> Render the component
         return (
-                <KBarProvider actions={actions}>
-                    <CommandBar />
+                <KBarProvider actions={[]}>
+                    <CommandBar target={board}/>
 
             <div
                 className="h-full bg-matcha-paper board_inner"

@@ -9,7 +9,23 @@ import type { OnDrag } from "react-moveable";
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
 import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../model/registry";
-import { DEFAULT_INSERTION_MODE } from "../model/board";
+import { DEFAULT_INSERTION_MODE, COMMAND_BAR_ACTIVE } from "../model/board";
+
+import {
+    ActionId,
+    KBarAnimator,
+    KBarProvider,
+    KBarPortal,
+    KBarPositioner,
+    KBarSearch,
+    KBarResults,
+    createAction,
+    useMatches,
+    useRegisterActions,
+    ActionImpl,
+    useKBar,
+    Priority
+} from "kbar";
 
 export function FrameView({ target }: EntityViewProps) {
 
@@ -21,6 +37,8 @@ export function FrameView({ target }: EntityViewProps) {
 
 	const lines = useListenable(target_ir.lines);
 	const pos = useListenable(target_frame.position);
+
+        const [command_key_pressed, set_command_key_pressed] = React.useState(false);
 
 
 	/******************/
@@ -41,6 +59,9 @@ export function FrameView({ target }: EntityViewProps) {
 		target.destroy();
 	});
 
+	const command_bar_active = target.deepGet(COMMAND_BAR_ACTIVE);
+	const command_bar_active_listener = useListenable(command_bar_active);
+
 	const doAddLine = wrapWeakReceiver(target_ir, target_ir => {
 		const line = new Entity(target_ir, "line"); // make a new line entity, parenting it to our current frame
 		const line_ir = line.add(new IrLine(line), [IrLine.KEY]); // add the line ir to our entity
@@ -51,8 +72,8 @@ export function FrameView({ target }: EntityViewProps) {
 
 		target_ir.lines.push(line); // finally, add it to the frames lines
 
-                //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
-                const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[2]!; // get the kind of block we want to insert
+                const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
+                //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[2]!; // get the kind of block we want to insert
                	// TODO deleting blocks breaks??
 		// based on the current insertion mode
 		// Construct a new block through its factory and add it to the line.
@@ -65,15 +86,56 @@ export function FrameView({ target }: EntityViewProps) {
 		doAddLine(); // add a line by default
 	});
 
+        const [barTrigger, triggerBar] = React.useState(0);
+
         const handleFocus = () => {
+            triggerBar(barTrigger + 1)
         }
 
+        const { query } = useKBar();
 
+
+        const frame_actions = [
+            {
+                id: "Delete Frame",
+                name: "Delete Frame",
+                subtitle: "delete the current frame.",
+                shortcut: [],
+                perform: () => {
+                    doDestroy();
+                },
+                keywords: "",
+                priority: Priority.MEDIUM,
+                section: "Frame"
+            },
+            //{
+            //    id: "+Math Block",
+            //    name: "+Math Block",
+            //    subtitle: "add a math block",
+            //    shortcut: [],
+            //    perform: () => {
+            //        doDestroy();
+            //    },
+            //    keywords: "",
+            //    priority: Priority.MEDIUM,
+            //    section: "Frame"
+            //},
+        ]
+
+
+        useRegisterActions(frame_actions, [barTrigger])
 	// this code is for temp
 	// it's for deleting empty frames, allowing for free clicking around w/o cluttering
 	const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
 		const isEmpty = (target_ir: IrFrame) => {
 			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]` 
+                        console.log(command_key_pressed, "sssssssssss")
+                        if (command_key_pressed) return false;
+                        
+                        if (command_bar_active_listener) {
+                            return false;
+                        }
+
 			if (target_ir.lines.length > 1) return false;
 
 			const first_line = target_ir.lines.value[0];
@@ -119,6 +181,19 @@ export function FrameView({ target }: EntityViewProps) {
 
 	return <>
 		<div className="frame"
+
+                        onKeyDown={e => {
+                            if (e.key === "Meta") {
+                                set_command_key_pressed(true)
+                            }
+                        }}
+
+                        onKeyUp={e => {
+                            if (e.key === "Meta") {
+                                set_command_key_pressed(false)
+                            }
+                        }}
+
 			data-entity-id={target.part_id} // pass this so we can handle selecto stuff
 			ref={frameRef}
 			style={{
@@ -205,6 +280,84 @@ export function LineView({ target }: EntityViewProps) {
 		//target_ir.blocks.push(block);
 	});
 
+        const { query } = useKBar();
+        const [barTrigger, triggerBar] = React.useState(0);
+        const handleFocus = () => {
+            triggerBar(barTrigger + 1)
+        }
+
+        const addBlock = (i) => {
+            const frame_ir = target_ir.deepGet(IrFrame.KEY)
+
+            const new_line = new Entity(frame_ir, "line");
+            const line_ir = new_line.add(new IrLine(new_line), [IrLine.KEY]);
+
+            const idx = frame_ir.lines.indexOf(target_ir.parent_entity)
+            frame_ir.lines.pushAt(idx+1, new_line)
+
+            const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[i]!; // FIXME todo
+            const block = kind.get(BLOCK_FACTORY_KEY)(line_ir);
+            line_ir.blocks.push(block)
+        }
+
+        const line_actions = [
+            {
+                id: "+ Math Block",
+                name: "+ Math Block",
+                subtitle: "add a math block",
+                shortcut: [],
+                perform: () => {
+                    setTimeout(() => {
+                        addBlock(1)
+                    }, 100)
+                },
+                keywords: "",
+                priority: Priority.MEDIUM,
+                section: "Frame"
+            },
+            {
+                id: "+ Text Block",
+                name: "+ Text Block",
+                subtitle: "add a text block",
+                shortcut: [],
+                perform: () => {
+                    setTimeout(() => {
+                        addBlock(0)
+                    }, 100)
+                },
+                keywords: "",
+                priority: Priority.MEDIUM,
+                section: "Frame"
+            },
+            {
+                id: "+ Scry Block",
+                name: "+ Scry Block",
+                subtitle: "add a scry block",
+                shortcut: [],
+                perform: () => {
+                    setTimeout(() => {
+                        addBlock(2)
+                    }, 100)
+                },
+                keywords: "",
+                priority: Priority.MEDIUM,
+                section: "Frame"
+            },
+            {
+                id: "Export Frame",
+                name: "Export Frame",
+                subtitle: "export the current frame to LaTeX.",
+                shortcut: [],
+                perform: () => {
+                    alert("not implemented yet! @nick")
+                },
+                keywords: "",
+                priority: Priority.MEDIUM,
+                section: "Frame"
+            },
+        ]
+        useRegisterActions(line_actions, [barTrigger])
+
 	const doMerge = (rel: "prev" | "next") => {
 		if (!target_ir.is_alive) return;
 
@@ -212,7 +365,9 @@ export function LineView({ target }: EntityViewProps) {
 		frame_ir.mergeLines(frame_ir.lines.indexOf(target), rel);
 	};
 
-	return <div>
+	return <div
+            onFocus={handleFocus}
+        >
 		{blocks.map(
 			block => {
 				const block_ir = block.get(IrBlock.KEY);

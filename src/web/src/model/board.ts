@@ -10,6 +10,8 @@ export const DEFAULT_INSERTION_MODE = new TypedKey<ListenValue<number>>("DEFAULT
 // TODO: This should be a boolean.
 export const SELECT_ACTIVE = new TypedKey<ListenValue<number>>("SELECT_ACTIVE");
 
+export const COMMAND_BAR_ACTIVE = new TypedKey<ListenValue<boolean>>("COMMAND_BAR_ACTIVE");
+
 // A signal of the board used by the sidebar to reset the zoom level
 export const ZOOM_RESET_SIGNAL = new TypedKey<Signal<() => void>>("RESET_MY_ZOOM");
 
@@ -18,9 +20,12 @@ export function createBoard() {
 	const board_ir = board.add(new IrBoard(board), [IrBoard.KEY]);
 	const registry = board.add(createBlockRegistry(board), [BlockRegistry.KEY]);
 
-	board.add(new ListenValue<number>(board, 0), [DEFAULT_INSERTION_MODE]);
+
+	board.add(new ListenValue<number>(board, 1), [DEFAULT_INSERTION_MODE]);
 	board.add(new ListenValue<number>(board, 0), [SELECT_ACTIVE]);
 	board.add(new Signal<() => void>(board), [ZOOM_RESET_SIGNAL]);
+
+	board.add(new ListenValue<boolean>(board, false), [COMMAND_BAR_ACTIVE]);
 
 	board.setFinalizer(() => {
 		registry.destroy();

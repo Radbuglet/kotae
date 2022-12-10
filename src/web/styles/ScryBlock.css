@@ -1,11 +1,14 @@
 .canv {
+    position: relative;
+    border: 1px solid transparent;
+    transition: 0.3s;
 }
 
 
 .scry_buttons {
     position: absolute;
     display: flex;
-    right: -30px;
+    right: -40px;
     top: 8px;
     opacity: 0;
     transition: 0.3s;
@@ -24,6 +27,7 @@
 
 .actual_canvas_el {
     /*transform: scale(0.5);*/
+    border: 1px solid var(--ink);
 }
 
 
