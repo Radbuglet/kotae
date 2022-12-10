@@ -38,6 +38,8 @@ export function FrameView({ target }: EntityViewProps) {
 	const lines = useListenable(target_ir.lines);
 	const pos = useListenable(target_frame.position);
 
+        const [command_key_pressed, set_command_key_pressed] = React.useState(false);
+
 
 	/******************/
 	/****** REFS ******/
@@ -125,12 +127,11 @@ export function FrameView({ target }: EntityViewProps) {
 	// this code is for temp
 	// it's for deleting empty frames, allowing for free clicking around w/o cluttering
 	const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
-                console.log("blurring", target_ir.part_id)
 		const isEmpty = (target_ir: IrFrame) => {
 			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]` 
-                        setTimeout(() => {
-                            console.log(command_bar_active_listener, "here")
-                        }, 300)
+                        console.log(command_key_pressed, "sssssssssss")
+                        if (command_key_pressed) return false;
+                        
                         if (command_bar_active_listener) {
                             return false;
                         }
@@ -180,6 +181,19 @@ export function FrameView({ target }: EntityViewProps) {
 
 	return <>
 		<div className="frame"
+
+                        onKeyDown={e => {
+                            if (e.key === "Meta") {
+                                set_command_key_pressed(true)
+                            }
+                        }}
+
+                        onKeyUp={e => {
+                            if (e.key === "Meta") {
+                                set_command_key_pressed(false)
+                            }
+                        }}
+
 			data-entity-id={target.part_id} // pass this so we can handle selecto stuff
 			ref={frameRef}
 			style={{
@@ -293,7 +307,9 @@ export function LineView({ target }: EntityViewProps) {
                 subtitle: "add a math block",
                 shortcut: [],
                 perform: () => {
-                    addBlock(1)
+                    setTimeout(() => {
+                        addBlock(1)
+                    }, 100)
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,
@@ -305,7 +321,9 @@ export function LineView({ target }: EntityViewProps) {
                 subtitle: "add a text block",
                 shortcut: [],
                 perform: () => {
-                    addBlock(0)
+                    setTimeout(() => {
+                        addBlock(0)
+                    }, 100)
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,
@@ -317,7 +335,9 @@ export function LineView({ target }: EntityViewProps) {
                 subtitle: "add a scry block",
                 shortcut: [],
                 perform: () => {
-                    addBlock(2)
+                    setTimeout(() => {
+                        addBlock(2)
+                    }, 100)
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,
