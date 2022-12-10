@@ -11,6 +11,7 @@ export class IrFrame extends Part {
 	readonly lines = new ListenArray<Entity>(this);
         readonly ce = new ComputeEngine();
 
+
 	get linked_to(): IReadonlyListenSet<Entity> {
 		return this.linked_to_;
 	}
@@ -67,13 +68,40 @@ export class IrFrame extends Part {
 		mergee.destroy();
 	}
 
-        testContext() {
-            console.log(this.ce.parse("e^{i\\pi}").N().latex, "hwe");
+        cleanLatexInput(v: string) {
+            console.log(v)
+            //console.log(v, "what?")
+            //if (v.startsWith("=")) {
+            //    consol
+            //    v = v
+            //}
+            //console.log(v, "v!!")
+            return v
         }
 
         simplify(v: string) {
+            console.log(v, "sssfsdaf")
+            v = this.cleanLatexInput(v)
             return this.ce.parse(v).simplify().latex
         }
+
+        evaluate(v: string) {
+            v = this.cleanLatexInput(v)
+            return this.ce.parse(v).evaluate().latex
+        }
+
+        approximate(v: string) {
+            v = this.cleanLatexInput(v)
+            this.ce.latexOptions = { precision: 6 }
+            return this.ce.parse(v).N().latex
+        }
+
+        expand(v: string) {
+            v = this.cleanLatexInput(v)
+            let parsed = this.ce.parse(`\\mathrm{Expand}(${ v })`)
+            return parsed.evaluate().latex
+        }
+
 
 	protected override onDestroy() {
 		// Destroy lines

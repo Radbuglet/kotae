@@ -21,7 +21,7 @@ export function createBoard() {
 	const registry = board.add(createBlockRegistry(board), [BlockRegistry.KEY]);
 
 
-	board.add(new ListenValue<number>(board, 0), [DEFAULT_INSERTION_MODE]);
+	board.add(new ListenValue<number>(board, 1), [DEFAULT_INSERTION_MODE]);
 	board.add(new ListenValue<number>(board, 0), [SELECT_ACTIVE]);
 	board.add(new Signal<() => void>(board), [ZOOM_RESET_SIGNAL]);
 
