@@ -4,9 +4,22 @@ import { EntityViewProps } from '../util/hooks';
 import { OurSidebar } from './Sidebar';
 import { BoardView } from './BoardView';
 import '../../styles/App.css';
+import {
+  KBarProvider,
+  KBarPortal,
+  KBarPositioner,
+  KBarAnimator,
+  KBarSearch,
+  useMatches,
+  NO_GROUP
+} from "kbar";
+
+import CommandBar from "./CommandBar";
 
 export default function AppView({ target }: EntityViewProps) {
 	return (
+                <KBarProvider actions={[]}>
+                    <CommandBar target={target}/>
 		<ProSidebarProvider>
 			<div className="bg-matcha-bluish the_background">
 				{/** We wrap the sidebar in a div to get rid of a white border that the library creates. */}
@@ -24,5 +37,7 @@ export default function AppView({ target }: EntityViewProps) {
 					<BoardView target={target} />
 				</div>
 			</div>
-		</ProSidebarProvider>);
+		</ProSidebarProvider>
+                      </KBarProvider>
+                    );
 }

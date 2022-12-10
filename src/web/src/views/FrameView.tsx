@@ -8,6 +8,7 @@ import type { OnDrag } from "react-moveable";
 
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
+import { TbMathSymbols } from "react-icons/tb";
 import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../model/registry";
 import { DEFAULT_INSERTION_MODE, COMMAND_BAR_ACTIVE } from "../model/board";
 
@@ -92,8 +93,6 @@ export function FrameView({ target }: EntityViewProps) {
             triggerBar(barTrigger + 1)
         }
 
-        const { query } = useKBar();
-
 
         const frame_actions = [
             {
@@ -129,7 +128,6 @@ export function FrameView({ target }: EntityViewProps) {
 	const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
 		const isEmpty = (target_ir: IrFrame) => {
 			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]` 
-                        console.log(command_key_pressed, "sssssssssss")
                         if (command_key_pressed) return false;
                         
                         if (command_bar_active_listener) {
@@ -179,6 +177,7 @@ export function FrameView({ target }: EntityViewProps) {
 		}
 	});
 
+        const { query } = useKBar();
 	return <>
 		<div className="frame"
 
@@ -219,7 +218,19 @@ export function FrameView({ target }: EntityViewProps) {
 					<MdDragIndicator />
 				</div>
 
+
 			</div>
+
+                        <div className="right-frame-controls">
+                            <div onClick={() => {
+                                query.toggle()
+                            }}
+                                className="control"
+                            >
+                                <TbMathSymbols />
+                            </div>
+                        </div>
+
 
 			{lines.map(
 				line => <LineView key={line.part_id} target={line} />,
