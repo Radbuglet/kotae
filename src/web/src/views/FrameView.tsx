@@ -1,4 +1,4 @@
-import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock, MathBlock, ScryBlock } from "kotae-common";
+import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock, MathBlock, ScryBlock, SlateBlock } from "kotae-common";
 import { Entity } from "kotae-util";
 import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver, useInit } from "../util/hooks";
@@ -74,7 +74,7 @@ export function FrameView({ target }: EntityViewProps) {
 		target_ir.lines.push(line); // finally, add it to the frames lines
 
                 const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
-                //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[2]!; // get the kind of block we want to insert
+                //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[3]!; // get the kind of block we want to insert, for debugging
                	// TODO deleting blocks breaks??
 		// based on the current insertion mode
 		// Construct a new block through its factory and add it to the line.
