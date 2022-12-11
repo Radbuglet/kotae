@@ -1,3 +1,5 @@
+// https://github.com/jdalrymple/html-to-latex/blob/master/src/templates.js
+
 import { normalizeSafe } from 'upath';
 
 export const nls = (text) => `${text}\n`;

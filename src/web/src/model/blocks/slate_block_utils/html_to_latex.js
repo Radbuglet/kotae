@@ -1,3 +1,7 @@
+// https://github.com/jdalrymple/html-to-latex/blob/55e368aa6c4756f941d46a34574a71ca33b95246/src/convert.js
+
+// I (Nick) modified this to be compatible with our project (and with parcel).
+
 import { parseFragment } from 'parse5';
 import { decodeHTML } from 'entities';
 import { pipeline as pipelineSync } from 'stream';
