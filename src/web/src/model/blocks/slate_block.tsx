@@ -18,10 +18,7 @@ import { css } from '@emotion/css'
 import Prism from 'prismjs'
 import escapeHtml from 'escape-html'
 import markdown, { getCodeString } from '@wcj/markdown-to-html';
-//import { convertText } from 'html-to-latex'; // this will complain because it is a pure js lib, no type declarations
-//const html_to_latex = require('html-to-latex');
-//const { convertText } = html_to_latex;
-//import * as blah from "html-to-latex"
+import { convertText } from './slate_block_utils/html_to_latex'
 
 // this is a markdown rich text editor!
 // code is from this example: https://github.com/ianstormtaylor/slate/blob/main/site/examples/markdown-preview.tsx#L6
@@ -131,8 +128,7 @@ export function createKind(parent: Part | null): Entity {
 
 export function SlateBlockView({ target }: EntityViewProps) {
     const target_ir = target.get(SlateBlock.KEY);
-    const text = useListenable(target_ir.stringified_html);
-    //convertText(text).then(val => console.log(val)) // for html -> latex
+    const text = useListenable(target_ir.latexified);
     console.log(text) // debug
 
     const block_ref = React.useRef<HTMLDivElement>(null);
@@ -182,16 +178,14 @@ export function SlateBlockView({ target }: EntityViewProps) {
     }, [])
 
     const handleKeydown = async(e: React.KeyboardEvent) => {
-        //console.log(serialize(editor)) // debug
-        target_ir.stringified_html.value = serialize(editor)
+        target_ir.latexified.value = await convertText(serialize(editor))
     }
 
     return <div
         className="outline-none"
         ref={block_ref}
         onBlur={async(e) => {
-            //console.log(serialize(editor)) // debug
-            target_ir.stringified_html.value = serialize(editor) 
+            target_ir.latexified.value =  await convertText(serialize(editor))
         }}
         onKeyDown={handleKeydown}
     >

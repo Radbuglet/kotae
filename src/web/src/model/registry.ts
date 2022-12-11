@@ -22,10 +22,10 @@ export type BlockFactory = (parent: Part | null) => Entity;
 
 export function createRegistry(parent: Part | null) {
 	const block_registry = new BlockRegistry(parent);
-	block_registry.registerKind(TextBlock.createKind(block_registry));
+	block_registry.registerKind(SlateBlock.createKind(block_registry))
 	block_registry.registerKind(MathBlock.createKind(block_registry));
 	block_registry.registerKind(ScryBlock.createKind(block_registry));
-	block_registry.registerKind(SlateBlock.createKind(block_registry))
+	block_registry.registerKind(TextBlock.createKind(block_registry));
 
 	return block_registry;
 }
