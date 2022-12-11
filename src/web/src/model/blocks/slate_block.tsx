@@ -17,6 +17,7 @@ import { withHistory } from 'slate-history'
 import { css } from '@emotion/css'
 import Prism from 'prismjs'
 import escapeHtml from 'escape-html'
+import markdown, { getCodeString } from '@wcj/markdown-to-html';
 
 // this is a markdown rich text editor!
 // code is from this example: https://github.com/ianstormtaylor/slate/blob/main/site/examples/markdown-preview.tsx#L6
@@ -93,17 +94,7 @@ const serialize = node => {
     }
 
     const children = node.children.map(n => serialize(n)).join('')
-
-    switch (node.type) {
-        case 'quote':
-            return `<blockquote><p>${children}</p></blockquote>`
-        case 'paragraph':
-            return `<p>${children}</p>`
-        case 'link':
-            return `<a href="${escapeHtml(node.url)}">${children}</a>`
-        default:
-            return children
-    }
+    return markdown(children)
 }
 
 // ! starting here is regular kotae code.
@@ -133,7 +124,7 @@ export function createKind(parent: Part | null): Entity {
 
 export function SlateBlockView({ target }: EntityViewProps) {
     const target_ir = target.get(SlateBlock.KEY);
-    const text = useListenable(target_ir.stringified_html); // this is erroring
+    //const text = useListenable(target_ir.stringified_html); // this is erroring
 
     const block_ref = React.useRef<HTMLDivElement>(null);
 
@@ -183,7 +174,8 @@ export function SlateBlockView({ target }: EntityViewProps) {
 
     const handleKeydown = (e: React.KeyboardEvent) => {
         console.log(serialize(editor))
-        target_ir.stringified_html.value = serialize(editor) //this is erroring
+        //console.log(editor)
+        //target_ir.stringified_html.value = serialize(editor) //this is erroring
     }
 
     return <div
@@ -199,7 +191,7 @@ export function SlateBlockView({ target }: EntityViewProps) {
             <Editable
                 decorate={decorate}
                 renderLeaf={renderLeaf}
-                placeholder="Write some markdown..."
+                placeholder=""
             />
         </Slate>
     </div>;
