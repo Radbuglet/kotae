@@ -104,7 +104,7 @@ export function FrameView({ target }: EntityViewProps) {
                     doDestroy();
                 },
                 keywords: "",
-                priority: Priority.MEDIUM,
+                priority: Priority.NORMAL,
                 section: "Frame"
             },
             //{
@@ -116,7 +116,7 @@ export function FrameView({ target }: EntityViewProps) {
             //        doDestroy();
             //    },
             //    keywords: "",
-            //    priority: Priority.MEDIUM,
+            //    priority: Priority.NORMAL,
             //    section: "Frame"
             //},
         ]
@@ -323,7 +323,7 @@ export function LineView({ target }: EntityViewProps) {
                     }, 100)
                 },
                 keywords: "",
-                priority: Priority.MEDIUM,
+                priority: Priority.NORMAL,
                 section: "Frame"
             },
             {
@@ -337,7 +337,7 @@ export function LineView({ target }: EntityViewProps) {
                     }, 100)
                 },
                 keywords: "",
-                priority: Priority.MEDIUM,
+                priority: Priority.NORMAL,
                 section: "Frame"
             },
             {
@@ -351,19 +351,20 @@ export function LineView({ target }: EntityViewProps) {
                     }, 100)
                 },
                 keywords: "",
-                priority: Priority.MEDIUM,
+                priority: Priority.NORMAL,
                 section: "Frame"
             },
-            {
+            { // TODO: @myself
                 id: "Export Frame",
                 name: "Export Frame",
                 subtitle: "export the current frame to LaTeX.",
                 shortcut: [],
                 perform: () => {
+					//target_ir.deepGet
                     alert("not implemented yet! @nick")
                 },
                 keywords: "",
-                priority: Priority.MEDIUM,
+                priority: Priority.NORMAL,
                 section: "Frame"
             },
         ]
