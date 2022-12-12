@@ -29,7 +29,22 @@
 	/*@apply space-x-1;*/
 }
 
+.right-frame-controls {
+	position: absolute;
+	display: flex;
+	right: -30px;
+        top: 12px;
+	opacity: 0;
+	transition: 0.3s;
+	flex-direction: row;
+}
+
 .frame:hover .frame-controls {
+	/*display: block;*/
+	opacity: 1;
+}
+
+.frame:hover .right-frame-controls {
 	/*display: block;*/
 	opacity: 1;
 }

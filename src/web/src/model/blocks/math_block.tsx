@@ -153,24 +153,48 @@ function MathBlockView({ target }: EntityViewProps) {
 
         const math_block_actions = [
             {
-                id: "Test ce",
-                name: "Test ce",
-                subtitle: "sahhhhhhhhhhh",
-                shortcut: [],
-                perform: () => { 
-                    console.log(target_ir.deepGet(IrFrame.KEY).testContext())
-                },
-                keywords: "Toggle the quick switcher",
-                priority: Priority.HIGH,
-                section: "Math Block"
-            },
-            {
                 id: "Simplify",
                 name: "Simplify",
                 subtitle: "simplify the current line.",
                 shortcut: [],
                 perform: () => { 
                     addResultLine(`= ${target_ir.deepGet(IrFrame.KEY).simplify(target_ir.math.value)}`)
+                },
+                //keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
+            {
+                id: "Evaluate",
+                name: "Evaluate",
+                subtitle: "evaluate the current line.",
+                shortcut: [],
+                perform: () => { 
+                    addResultLine(`= ${target_ir.deepGet(IrFrame.KEY).evaluate(target_ir.math.value)}`)
+                },
+                //keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
+            {
+                id: "Approximate",
+                name: "Approximate",
+                subtitle: "approximate the current line.",
+                shortcut: [],
+                perform: () => { 
+                    addResultLine(`= ${target_ir.deepGet(IrFrame.KEY).approximate(target_ir.math.value)}`)
+                },
+                //keywords: "Toggle the quick switcher",
+                priority: Priority.HIGH,
+                section: "Math Block"
+            },
+            {
+                id: "Expand",
+                name: "Expand",
+                subtitle: "expand the current line.",
+                shortcut: [],
+                perform: () => { 
+                    addResultLine(`= ${target_ir.deepGet(IrFrame.KEY).expand(target_ir.math.value)}`)
                 },
                 //keywords: "Toggle the quick switcher",
                 priority: Priority.HIGH,
@@ -205,6 +229,7 @@ function MathBlockView({ target }: EntityViewProps) {
         }
 
         useRegisterActions(math_block_actions, [barTrigger])
+
 
 	return <div
 		className="outline-none border-red-500 border-0"

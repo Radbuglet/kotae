@@ -8,8 +8,23 @@ import { Sidebar, Menu, MenuItem, useProSidebar } from 'react-pro-sidebar'; // s
 import { MdOutlineShareLocation } from 'react-icons/md';
 import { BiText, BiSelection } from 'react-icons/bi';
 import { FaAngleDoubleRight } from 'react-icons/fa';
-import { TbMathAvg } from 'react-icons/tb';
-
+import { TbMathAvg, TbMathSymbols } from 'react-icons/tb';
+import {
+    ActionId,
+    KBarAnimator,
+    KBarProvider,
+    KBarPortal,
+    KBarPositioner,
+    KBarSearch,
+    KBarResults,
+    createAction,
+    useMatches,
+    useRegisterActions,
+    ActionImpl,
+    useKBar,
+    Priority,
+    useStore
+} from "kbar";
 
 
 export function OurSidebar({ target }: EntityViewProps) {
@@ -39,6 +54,8 @@ export function OurSidebar({ target }: EntityViewProps) {
 
 	const curr_ins_mode = useListenable(block_insertion_mode); // how we read block insertion mode 
 	const curr_select_active = useListenable(select_toggle); // how we read toggling selecto 
+
+        const { query } = useKBar()
 
 	return (<>
 		{/** All of these attributes of sidebar are self-explanatory, except that transitionDuration is # of ms to animate collapse/expand. */}
@@ -108,6 +125,16 @@ export function OurSidebar({ target }: EntityViewProps) {
 				<MenuItem icon={<MdOutlineShareLocation size={25} />} onClick={doTriggerResetZoom}>
 					Reset zoom
 				</MenuItem>
+
+                                {/*<MenuItem icon={<TbMathSymbols size={25} />} onClick={() => { 
+                                    query.toggle()
+                                }}>
+                                    Command bar
+				</MenuItem>*/}
+
+                                 {/*
+                                     for when we add non-frame specific actions.
+                                */}
 
 				{
 					/*

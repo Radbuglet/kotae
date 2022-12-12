@@ -1,4 +1,4 @@
-import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock, MathBlock, ScryBlock } from "kotae-common";
+import { BlockRegistry, IrBlock, IrFrame, IrLine, LayoutFrame, TextBlock, MathBlock, ScryBlock, SlateBlock } from "kotae-common";
 import { Entity } from "kotae-util";
 import * as React from "react";
 import { EntityViewProps, useListenable, wrapWeakReceiver, useInit } from "../util/hooks";
@@ -8,6 +8,7 @@ import type { OnDrag } from "react-moveable";
 
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
+import { TbMathSymbols } from "react-icons/tb";
 import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../model/registry";
 import { DEFAULT_INSERTION_MODE, COMMAND_BAR_ACTIVE } from "../model/board";
 
@@ -37,6 +38,8 @@ export function FrameView({ target }: EntityViewProps) {
 
 	const lines = useListenable(target_ir.lines);
 	const pos = useListenable(target_frame.position);
+
+        const [command_key_pressed, set_command_key_pressed] = React.useState(false);
 
 
 	/******************/
@@ -71,7 +74,7 @@ export function FrameView({ target }: EntityViewProps) {
 		target_ir.lines.push(line); // finally, add it to the frames lines
 
                 const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[curr_ins_mode]!; // get the kind of block we want to insert
-                //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[2]!; // get the kind of block we want to insert
+                //const kind = target_ir.deepGet(BlockRegistry.KEY).kinds[3]!; // get the kind of block we want to insert, for debugging
                	// TODO deleting blocks breaks??
 		// based on the current insertion mode
 		// Construct a new block through its factory and add it to the line.
@@ -89,8 +92,6 @@ export function FrameView({ target }: EntityViewProps) {
         const handleFocus = () => {
             triggerBar(barTrigger + 1)
         }
-
-        const { query } = useKBar();
 
 
         const frame_actions = [
@@ -125,12 +126,10 @@ export function FrameView({ target }: EntityViewProps) {
 	// this code is for temp
 	// it's for deleting empty frames, allowing for free clicking around w/o cluttering
 	const handleBlur = wrapWeakReceiver(target_ir, (target_ir, e: React.FocusEvent<HTMLDivElement>) => {
-                console.log("blurring", target_ir.part_id)
 		const isEmpty = (target_ir: IrFrame) => {
 			// TODO: Integrate with `.kind[EMPTY_DETECTOR_KEY]` 
-                        setTimeout(() => {
-                            console.log(command_bar_active_listener, "here")
-                        }, 300)
+                        if (command_key_pressed) return false;
+                        
                         if (command_bar_active_listener) {
                             return false;
                         }
@@ -178,8 +177,22 @@ export function FrameView({ target }: EntityViewProps) {
 		}
 	});
 
+        const { query } = useKBar();
 	return <>
 		<div className="frame"
+
+                        onKeyDown={e => {
+                            if (e.key === "Meta") {
+                                set_command_key_pressed(true)
+                            }
+                        }}
+
+                        onKeyUp={e => {
+                            if (e.key === "Meta") {
+                                set_command_key_pressed(false)
+                            }
+                        }}
+
 			data-entity-id={target.part_id} // pass this so we can handle selecto stuff
 			ref={frameRef}
 			style={{
@@ -205,7 +218,19 @@ export function FrameView({ target }: EntityViewProps) {
 					<MdDragIndicator />
 				</div>
 
+
 			</div>
+
+                        <div className="right-frame-controls">
+                            <div onClick={() => {
+                                query.toggle()
+                            }}
+                                className="control"
+                            >
+                                <TbMathSymbols />
+                            </div>
+                        </div>
+
 
 			{lines.map(
 				line => <LineView key={line.part_id} target={line} />,
@@ -293,7 +318,9 @@ export function LineView({ target }: EntityViewProps) {
                 subtitle: "add a math block",
                 shortcut: [],
                 perform: () => {
-                    addBlock(1)
+                    setTimeout(() => {
+                        addBlock(1)
+                    }, 100)
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,
@@ -305,7 +332,9 @@ export function LineView({ target }: EntityViewProps) {
                 subtitle: "add a text block",
                 shortcut: [],
                 perform: () => {
-                    addBlock(0)
+                    setTimeout(() => {
+                        addBlock(0)
+                    }, 100)
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,
@@ -317,7 +346,9 @@ export function LineView({ target }: EntityViewProps) {
                 subtitle: "add a scry block",
                 shortcut: [],
                 perform: () => {
-                    addBlock(2)
+                    setTimeout(() => {
+                        addBlock(2)
+                    }, 100)
                 },
                 keywords: "",
                 priority: Priority.MEDIUM,
