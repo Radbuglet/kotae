@@ -8,7 +8,7 @@ export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "text block kind");
 	kind.add(TextBlockView, [BLOCK_VIEW_KEY]);
 	kind.add({
-		name: "Text Block",
+		name: "Text Block", // IF THIS IS EVER CHANGED, MODIFY FRAMEVIEW 
 		description: "You know what this is :)",
 		icon: null!,
 	}, [BLOCK_KIND_INFO_KEY]);
