@@ -9,7 +9,7 @@ import type { OnDrag } from "react-moveable";
 import { MdDragIndicator } from "react-icons/md";
 import { RiDeleteBackLine } from "react-icons/ri";
 import { TbMathSymbols } from "react-icons/tb";
-import { BLOCK_FACTORY_KEY, BLOCK_VIEW_KEY } from "../model/registry";
+import { BLOCK_FACTORY_KEY, BLOCK_KIND_INFO_KEY, BLOCK_VIEW_KEY } from "../model/registry";
 import { DEFAULT_INSERTION_MODE, COMMAND_BAR_ACTIVE } from "../model/board";
 
 import {
@@ -354,14 +354,53 @@ export function LineView({ target }: EntityViewProps) {
                 priority: Priority.NORMAL,
                 section: "Frame"
             },
-            { // TODO: @myself
+            {
                 id: "Export Frame",
                 name: "Export Frame",
-                subtitle: "export the current frame to LaTeX.",
+                subtitle: "export the current frame to LaTeX and add to clipboard.",
                 shortcut: [],
                 perform: () => {
-					//target_ir.deepGet
-                    alert("not implemented yet! @nick")
+					let final_copy_and_paste = ""
+					const frame_ir = target_ir.deepGet(IrFrame.KEY);
+					for (const line of frame_ir.lines.value)
+					{
+						const line_ir = line.get(IrLine.KEY)
+						for (const block of line_ir.blocks.value)
+						{
+							const ir_block = block.get(IrBlock.KEY);
+							// IF YOU EVER CHANGE THESE, MAKE SURE TO CHANGE THEM IN THE OTHER SPECIFIED LOCATION.
+							const type_text = "Text Block" // line 11 of text_block.tsx
+							const type_slate = "Slate Block" // line 109 of slate_block.tsx
+							const type_math = "Math Block" // line 29 of math_block.tsx
+							const type_scry = "Latex Scry Block" // line 154 of latex_scry.tsx
+							const type = ir_block.kind.get(BLOCK_KIND_INFO_KEY).name;
+							let copy_and_paste_val = ""
+							if (type == type_text)
+							{
+								copy_and_paste_val = `\n${block.get(TextBlock.KEY).text.value}`;
+							}
+							else if (type == type_slate)
+							{
+								copy_and_paste_val = `\n${block.get(SlateBlock.KEY).latexified.value}`;
+							}
+							else if (type == type_scry)
+							{
+								// we don't do anything for scry blocks, because scry blocks just create make math blocks
+							}
+							else if (type == type_math)
+							{
+								copy_and_paste_val = `$$${block.get(MathBlock.KEY).math.value}$$`; // wrap with double dollar signs so it's centered math
+							}
+							else { copy_and_paste_val = "Kotae ERRORED."; }
+							final_copy_and_paste += copy_and_paste_val
+						}
+					}
+					if (final_copy_and_paste.startsWith("\n"))
+					{
+						final_copy_and_paste = final_copy_and_paste.slice(1)
+					}
+					console.log(final_copy_and_paste);
+					navigator.clipboard.writeText(final_copy_and_paste);
                 },
                 keywords: "",
                 priority: Priority.NORMAL,

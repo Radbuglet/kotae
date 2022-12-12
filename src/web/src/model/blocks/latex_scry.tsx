@@ -151,7 +151,7 @@ export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "scry block kind");
 	kind.add(ScryBlockView, [BLOCK_VIEW_KEY]);
 	kind.add({
-		name: "Latex Scry Block",
+		name: "Latex Scry Block", // IF THIS IS EVER CHANGED, MODIFY FRAMEVIEW 
 		description: "don't know how to write a symbol? search for it!",
 		icon: null!,
 	}, [BLOCK_KIND_INFO_KEY]);

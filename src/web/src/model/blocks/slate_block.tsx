@@ -106,7 +106,7 @@ export function createKind(parent: Part | null): Entity {
     const kind = new Entity(parent, "slate block kind");
     kind.add(SlateBlockView, [BLOCK_VIEW_KEY]);
     kind.add({
-        name: "Slate Block",
+        name: "Slate Block", // IF THIS IS EVER CHANGED, MODIFY FRAMEVIEW 
         description: "Rich text editor with markdown support",
         icon: null!,
     }, [BLOCK_KIND_INFO_KEY]);
@@ -129,7 +129,7 @@ export function createKind(parent: Part | null): Entity {
 export function SlateBlockView({ target }: EntityViewProps) {
     const target_ir = target.get(SlateBlock.KEY);
     const text = useListenable(target_ir.latexified);
-    console.log(text) // debug
+    //console.log(text) // debug
 
     const block_ref = React.useRef<HTMLDivElement>(null);
 

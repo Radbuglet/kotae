@@ -26,7 +26,7 @@ export function createKind(parent: Part | null) {
 	const kind = new Entity(parent, "math block kind");
 	kind.add(MathBlockView, [BLOCK_VIEW_KEY]);
 	kind.add({
-		name: "Math Block",
+		name: "Math Block", // IF THIS IS EVER CHANGED, MODIFY FRAMEVIEW 
 		description: "A block for writing math",
 		icon: null!,
 	}, [BLOCK_KIND_INFO_KEY]);
