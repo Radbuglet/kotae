@@ -2,7 +2,7 @@
   "name": "Kotae",
   "scripts": {
       "start": "electron .",
-      "dist": "cp -r ../dist ./src/ && electron-builder"
+      "bundle": "cp -r ../dist/ ./src/ && electron-builder"
   }, 
   "version": "1.2.0",
   "main": "main.js",
@@ -38,7 +38,7 @@
     "extends": null,
     "appId": "ink.kotae",
     "productName": "Kotae",
-    "directories": {
+       "directories": {
       "buildResources": "resources"
     },
     "mac": {
