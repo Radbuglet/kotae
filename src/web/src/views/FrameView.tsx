@@ -357,50 +357,55 @@ export function LineView({ target }: EntityViewProps) {
             {
                 id: "Export Frame",
                 name: "Export Frame",
-                subtitle: "export the current frame to LaTeX and add to clipboard.",
+                subtitle: "export the current frame to LaTeX and add to clipboard.", // the "add to clipboard" is important, otherwise the user has no way of knowing they can paste it now
                 shortcut: [],
+				/**
+				 * This function will export a frame into latex. It iterates through all of the block types, and exports them accordingly. 
+				 * After export, the latex is added to the user's clipboard.
+				*/
                 perform: () => {
-					let final_copy_and_paste = ""
-					const frame_ir = target_ir.deepGet(IrFrame.KEY);
-					for (const line of frame_ir.lines.value)
+					let final_copy_and_paste = "" // this is the final string that will be added to the user's clipboard 
+					const frame_ir = target_ir.deepGet(IrFrame.KEY); // access the backend IR of the frame we want to export
+					for (const line of frame_ir.lines.value) // go through each line of the frame
 					{
-						const line_ir = line.get(IrLine.KEY)
-						for (const block of line_ir.blocks.value)
+						const line_ir = line.get(IrLine.KEY) // get the backend IR of the line
+						for (const block of line_ir.blocks.value) // go through each block of the frame
 						{
-							const ir_block = block.get(IrBlock.KEY);
+							const ir_block = block.get(IrBlock.KEY); // access the backend IR of the block, which stores the data we want to export
 							// IF YOU EVER CHANGE THESE, MAKE SURE TO CHANGE THEM IN THE OTHER SPECIFIED LOCATION.
 							const type_text = "Text Block" // line 11 of text_block.tsx
 							const type_slate = "Slate Block" // line 109 of slate_block.tsx
 							const type_math = "Math Block" // line 29 of math_block.tsx
 							const type_scry = "Latex Scry Block" // line 154 of latex_scry.tsx
-							const type = ir_block.kind.get(BLOCK_KIND_INFO_KEY).name;
-							let copy_and_paste_val = ""
-							if (type == type_text)
+							const type = ir_block.kind.get(BLOCK_KIND_INFO_KEY).name; // we can differentiate the different type of blocks through their name property
+							let copy_and_paste_val = "" // this string will store the export of this block 
+							// access the appropriate property based on block type
+							if (type == type_text) // the text block is deprecated
 							{
-								copy_and_paste_val = `\n${block.get(TextBlock.KEY).text.value}`;
+								copy_and_paste_val = `\n${block.get(TextBlock.KEY).text.value}`; // add a new line at the beginning so the latex exported isn't all on one line 
 							}
-							else if (type == type_slate)
+							else if (type == type_slate) // the slate block is the text block with markdown capability
 							{
-								copy_and_paste_val = `\n${block.get(SlateBlock.KEY).latexified.value}`;
+								copy_and_paste_val = `\n${block.get(SlateBlock.KEY).latexified.value}`; // add a new line at the beginning so the latex exported isn't all on one line 
 							}
-							else if (type == type_scry)
+							else if (type == type_scry) // the scry block allows users to draw math and have it be converted to latex 
 							{
 								// we don't do anything for scry blocks, because scry blocks just create make math blocks
 							}
-							else if (type == type_math)
+							else if (type == type_math) // the actual math!
 							{
-								copy_and_paste_val = `$$${block.get(MathBlock.KEY).math.value}$$`; // wrap with double dollar signs so it's centered math
+								copy_and_paste_val = `$$${block.get(MathBlock.KEY).math.value}$$`; // wrap with double dollar signs so it's centered math on a new line (this is just latex syntax)
 							}
-							else { copy_and_paste_val = "Kotae ERRORED."; }
-							final_copy_and_paste += copy_and_paste_val
+							else { copy_and_paste_val = "Kotae ERRORED."; } // just in case, this should never happened, and has never happened in testing
+							final_copy_and_paste += copy_and_paste_val // add this block's export to the total export
 						}
 					}
-					if (final_copy_and_paste.startsWith("\n"))
+					if (final_copy_and_paste.startsWith("\n")) // the final export will start with a newline if the first block was a text or slate block
 					{
-						final_copy_and_paste = final_copy_and_paste.slice(1)
+						final_copy_and_paste = final_copy_and_paste.slice(1) // we don't want it to start with a newline
 					}
-					console.log(final_copy_and_paste);
-					navigator.clipboard.writeText(final_copy_and_paste);
+					console.log(final_copy_and_paste); // for debug purposes 
+					navigator.clipboard.writeText(final_copy_and_paste); // add to clipboard!
                 },
                 keywords: "",
                 priority: Priority.NORMAL,
