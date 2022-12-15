@@ -22,6 +22,7 @@ export type BlockFactory = (parent: Part | null) => Entity;
 
 export function createRegistry(parent: Part | null) {
 	const block_registry = new BlockRegistry(parent);
+	// the order of these is key!!! Because we access them by index. 
 	block_registry.registerKind(SlateBlock.createKind(block_registry))
 	block_registry.registerKind(MathBlock.createKind(block_registry));
 	block_registry.registerKind(ScryBlock.createKind(block_registry));

@@ -248,6 +248,7 @@ export async function convert(
   return converted.filter(Boolean).join('\n\n');
 }
 
+/** Converts an html string to a latex string that can be copy and pasted into a latex document. */
 export async function convertText(data, options = {}) {
   const root = await parseFragment(data);
 

@@ -18,10 +18,10 @@ import { css } from '@emotion/css'
 import Prism from 'prismjs'
 import escapeHtml from 'escape-html'
 import markdown, { getCodeString } from '@wcj/markdown-to-html';
-import { convertText } from './slate_block_utils/html_to_latex'
+import { convertText } from './slate_block_utils/html_to_latex' // this errors because it's written in JS, not an actual issue though when we run the app
 
 // this is a markdown rich text editor!
-// code is from this example: https://github.com/ianstormtaylor/slate/blob/main/site/examples/markdown-preview.tsx#L6
+// code below (until said otherwise) is from this example: https://github.com/ianstormtaylor/slate/blob/main/site/examples/markdown-preview.tsx#L6
 // demo: https://www.slatejs.org/examples/markdown-preview
 // eslint-disable-next-line
 ; Prism.languages.markdown = Prism.languages.extend("markup", {}), Prism.languages.insertBefore("markdown", "prolog", { blockquote: { pattern: /^>(?:[\t ]*>)*/m, alias: "punctuation" }, code: [{ pattern: /^(?: {4}|\t).+/m, alias: "keyword" }, { pattern: /``.+?``|`[^`\n]+`/, alias: "keyword" }], title: [{ pattern: /\w+.*(?:\r?\n|\r)(?:==+|--+)/, alias: "important", inside: { punctuation: /==+$|--+$/ } }, { pattern: /(^\s*)#+.+/m, lookbehind: !0, alias: "important", inside: { punctuation: /^#+|#+$/ } }], hr: { pattern: /(^\s*)([*-])([\t ]*\2){2,}(?=\s*$)/m, lookbehind: !0, alias: "punctuation" }, list: { pattern: /(^\s*)(?:[*+-]|\d+\.)(?=[\t ].)/m, lookbehind: !0, alias: "punctuation" }, "url-reference": { pattern: /!?\[[^\]]+\]:[\t ]+(?:\S+|<(?:\\.|[^>\\])+>)(?:[\t ]+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\)))?/, inside: { variable: { pattern: /^(!?\[)[^\]]+/, lookbehind: !0 }, string: /(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\((?:\\.|[^)\\])*\))$/, punctuation: /^[\[\]!:]|[<>]/ }, alias: "url" }, bold: { pattern: /(^|[^\\])(\*\*|__)(?:(?:\r?\n|\r)(?!\r?\n|\r)|.)+?\2/, lookbehind: !0, inside: { punctuation: /^\*\*|^__|\*\*$|__$/ } }, italic: { pattern: /(^|[^\\])([*_])(?:(?:\r?\n|\r)(?!\r?\n|\r)|.)+?\2/, lookbehind: !0, inside: { punctuation: /^[*_]|[*_]$/ } }, url: { pattern: /!?\[[^\]]+\](?:\([^\s)]+(?:[\t ]+"(?:\\.|[^"\\])*")?\)| ?\[[^\]\n]*\])/, inside: { variable: { pattern: /(!?\[)[^\]]+(?=\]$)/, lookbehind: !0 }, string: { pattern: /"(?:\\.|[^"\\])*"(?=\)$)/ } } } }), Prism.languages.markdown.bold.inside.url = Prism.util.clone(Prism.languages.markdown.url), Prism.languages.markdown.italic.inside.url = Prism.util.clone(Prism.languages.markdown.url), Prism.languages.markdown.bold.inside.italic = Prism.util.clone(Prism.languages.markdown.italic), Prism.languages.markdown.italic.inside.bold = Prism.util.clone(Prism.languages.markdown.bold); // prettier-ignore
@@ -83,25 +83,26 @@ const initialValue: Descendant[] = [
 ]
 
 
-// ! serializing function https://docs.slatejs.org/concepts/10-serializing
-
+// Modified from this reference: https://docs.slatejs.org/concepts/10-serializing
+/** Recursively serializes the slate block from a markdown string to a html string. */
 const serialize = node => {
     if (Text.isText(node)) {
-        let string = escapeHtml(node.text)
+        let string = escapeHtml(node.text) // escape any html reserved characters, because we're exporting to html
         if (string.startsWith("&gt")) {
-            string = `<blockquote>${string.slice(4)}</blockquote>`
+            string = `<blockquote>${string.slice(4)}</blockquote>` // the slice to remove the &gt
         }
-        if (node.bold) {
+        if (node.bold) { // leaves of the tree may have a bold property, this is the only property that leaves have that can be converted to html
             string = `<strong>${string}</strong>`
         }
         return string
     }
 
-    const children = node.children.map(n => serialize(n)).join('')
-    return markdown(children) as string
+    const children = node.children.map(n => serialize(n)).join('') // serialize recursively, the data of the slate block is of a tree structure
+    return markdown(children) as string // the markdown function converts markdown strings to html
 }
 
 // ! starting here is regular kotae code.
+/** Register the slate block as a block type in the IR. This is all IR boilerplate code. */
 export function createKind(parent: Part | null): Entity {
     const kind = new Entity(parent, "slate block kind");
     kind.add(SlateBlockView, [BLOCK_VIEW_KEY]);
@@ -126,9 +127,10 @@ export function createKind(parent: Part | null): Entity {
     return kind;
 }
 
+/** The actual react functional component for the slate block */
 export function SlateBlockView({ target }: EntityViewProps) {
-    const target_ir = target.get(SlateBlock.KEY);
-    const text = useListenable(target_ir.latexified);
+    const target_ir = target.get(SlateBlock.KEY); // access the IR of the slate block, so we can access it's data properties (such as its latexified export)
+    const text = useListenable(target_ir.latexified); // not actually ever used, we only write to latexified, don't need to read it unless exporting, which is handled in FrameView
     //console.log(text) // debug
 
     const block_ref = React.useRef<HTMLDivElement>(null);
@@ -137,6 +139,7 @@ export function SlateBlockView({ target }: EntityViewProps) {
         block_ref.current!.focus();
     }, []);
 
+    // this is all from https://github.com/ianstormtaylor/slate/blob/main/site/examples/markdown-preview.tsx#L6
     const renderLeaf = useCallback(props => <Leaf {...props} />, [])
     const editor = useMemo(() => withHistory(withReact(createEditor())), [])
     const decorate = useCallback(([node, path]) => {
@@ -178,14 +181,14 @@ export function SlateBlockView({ target }: EntityViewProps) {
     }, [])
 
     const handleKeydown = async(e: React.KeyboardEvent) => {
-        target_ir.latexified.value = await convertText(serialize(editor))
+        target_ir.latexified.value = await convertText(serialize(editor)) // anytime the user writes text, export it to latex (converText converts html to latex, serialize converts markdown to html)
     }
 
     return <div
         className="outline-none"
         ref={block_ref}
         onBlur={async(e) => {
-            target_ir.latexified.value =  await convertText(serialize(editor))
+            target_ir.latexified.value =  await convertText(serialize(editor)) // anytime the user exits out of the slate block (aka finishes writing), export it to latex
         }}
         onKeyDown={handleKeydown}
     >

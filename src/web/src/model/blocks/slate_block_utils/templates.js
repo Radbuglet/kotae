@@ -1,5 +1,7 @@
 // https://github.com/jdalrymple/html-to-latex/blob/master/src/templates.js
 
+// These are some utilities that ./html_to_latex.js needs. 
+
 import { normalizeSafe } from 'upath';
 
 export const nls = (text) => `${text}\n`;
